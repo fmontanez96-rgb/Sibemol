@@ -25,13 +25,13 @@
                     <i class="fas fa-wand-magic-sparkles text-white text-3xl"></i>
                 </div>
                 <h1 class="text-4xl md:text-5xl font-extrabold text-slate-900 tracking-tight">IA Image Studio</h1>
-                <p class="text-slate-500 mt-3 text-lg">Crea arte visual con Gemini Imagen 4.0</p>
+                <p class="text-slate-500 mt-3 text-lg">Crea arte visual con Gemini Imagen</p>
             </header>
 
             <div class="glass-card rounded-[2.5rem] shadow-2xl shadow-slate-200/50 p-6 md:p-8 mb-16">
                 <div class="flex flex-col gap-6">
                     <textarea id="promptInput" 
-                        placeholder="Describe tu imagen aquí... (ej: Un gato astronauta en Saturno)"
+                        placeholder="Describe tu imagen aquí... (ej: Paisaje futurista en Marte)"
                         class="w-full text-xl p-6 bg-slate-50/50 rounded-3xl border-2 border-transparent focus:border-slate-200 focus:bg-white outline-none transition-all resize-none h-40 leading-relaxed"
                     ></textarea>
 
@@ -94,7 +94,6 @@
             const prompt = promptInput.value.trim();
             if (!prompt) return;
 
-            // Verificación simple: si está vacío o es el texto por defecto
             if (!GEMINI_API_KEY || GEMINI_API_KEY === "" || GEMINI_API_KEY.includes("AGREGA")) {
                 showError("Configura una API Key válida en el código.");
                 return;
@@ -103,7 +102,8 @@
             setLoadingState(true);
             errorBox.classList.add('hidden');
 
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${GEMINI_API_KEY}`;
+            // Usamos Imagen 3.0 que suele ser el modelo gratuito disponible
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key=${GEMINI_API_KEY}`;
             
             const payload = {
                 instances: [{ prompt: prompt }],
@@ -120,6 +120,8 @@
                 const result = await response.json();
 
                 if (!response.ok) {
+                    // Si falla Imagen 3, el error te dirá por qué. 
+                    // Algunos proyectos requieren activar la facturación aunque sea gratuita.
                     throw new Error(result.error?.message || `Error ${response.status}`);
                 }
                 
@@ -128,11 +130,10 @@
                     addImageToGallery(base64Data, prompt);
                     promptInput.value = "";
                 } else {
-                    throw new Error("No se recibió una imagen. Intenta con otro texto.");
+                    throw new Error("La respuesta no contiene una imagen válida.");
                 }
             } catch (err) {
-                // Reintento automático (máximo 5 veces) para errores de red o servidor
-                if (retryCount < 5 && !err.message.toLowerCase().includes("key")) {
+                if (retryCount < 3 && !err.message.toLowerCase().includes("key") && !err.message.includes("paid")) {
                     const delay = Math.pow(2, retryCount) * 1000;
                     setTimeout(() => generateImage(retryCount + 1), delay);
                     return;

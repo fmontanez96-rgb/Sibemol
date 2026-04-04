@@ -100,7 +100,7 @@
     </div>
 
     <script>
-        /**
+                    /**
          * ==========================================
          * AGREGA TU API KEY AQUÍ
          * ==========================================
@@ -122,8 +122,9 @@
             
             if (!prompt) return;
 
-            if (GEMINI_API_KEY === "AIzaSyARHFo87Vegeudk00SA5TrPggl4aeEbHqw" || !GEMINI_API_KEY) {
-                showError("No has configurado la API Key en el código fuente del archivo HTML.");
+            // LÓGICA CORREGIDA: Solo falla si está vacío
+            if (!GEMINI_API_KEY || GEMINI_API_KEY === "") {
+                showError("No has configurado la API Key en el código fuente.");
                 return;
             }
 
@@ -145,6 +146,7 @@
 
                 if (!response.ok) {
                     const errorData = await response.json();
+                    // Si el error es de la clave, lo dirá aquí
                     throw new Error(errorData.error?.message || `Error del servidor (${response.status})`);
                 }
 
@@ -159,8 +161,7 @@
                     throw new Error("La API no devolvió una imagen válida.");
                 }
             } catch (err) {
-                if (retryCount < 5 && !err.message.includes("API Key")) {
-                    // Reintento con backoff exponencial
+                if (retryCount < 5 && !err.message.toLowerCase().includes("key")) {
                     const delay = Math.pow(2, retryCount) * 1000;
                     setTimeout(() => generateImage(retryCount + 1), delay);
                     return;
@@ -169,73 +170,7 @@
             } finally {
                 if (retryCount === 0) setLoadingState(false);
             }
-        }
-
-        function setLoadingState(loading) {
-            isGenerating = loading;
-            generateBtn.disabled = loading;
-            promptInput.disabled = loading;
-            
-            if (loading) {
-                generateBtn.innerHTML = `<div class="loader w-5 h-5 border-2 rounded-full animate-spin"></div> <span>Pintando...</span>`;
-                statusText.innerHTML = `<i class="fas fa-spinner animate-spin"></i> La IA está procesando tu descripción...`;
-            } else {
-                generateBtn.innerHTML = `<span>Generar Imagen</span> <i class="fas fa-paper-plane text-sm"></i>`;
-                statusText.innerHTML = `<i class="fas fa-circle-check text-emerald-500"></i> Listo para crear otra`;
-            }
-        }
-
-        function showError(msg) {
-            errorMessage.textContent = msg;
-            errorBox.classList.remove('hidden');
-        }
-
-        function addImageToGallery(base64, prompt) {
-            emptyState.classList.add('hidden');
-            const imageUrl = `data:image/png;base64,${base64}`;
-            const id = Date.now();
-            
-            const card = document.createElement('div');
-            card.className = "image-card group relative bg-white rounded-[2.5rem] overflow-hidden shadow-lg border border-slate-100 transition-all hover:shadow-2xl hover:-translate-y-1 animate-in fade-in slide-in-from-bottom-4 duration-500";
-            card.innerHTML = `
-                <img src="${imageUrl}" alt="${prompt}" class="w-full aspect-square object-cover">
-                <div class="overlay absolute inset-0 bg-black/70 opacity-0 transition-opacity flex flex-col justify-end p-8 text-white">
-                    <p class="text-sm font-medium mb-6 line-clamp-4 italic leading-relaxed">"${prompt}"</p>
-                    <div class="flex gap-3">
-                        <button onclick="downloadImage('${imageUrl}', ${id})" class="flex-1 bg-white text-black py-3 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-slate-100 transition-colors">
-                            <i class="fas fa-download"></i>
-                            Descargar
-                        </button>
-                        <button onclick="this.closest('.image-card').remove(); checkEmpty();" class="bg-red-500/20 hover:bg-red-500 text-white p-3 rounded-2xl transition-all">
-                            <i class="fas fa-trash-can"></i>
-                        </button>
-                    </div>
-                </div>
-            `;
-            galleryGrid.prepend(card);
-        }
-
-        function downloadImage(url, id) {
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `gemini-art-${id}.png`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-        }
-
-        function checkEmpty() {
-            if (galleryGrid.children.length === 0) {
-                emptyState.classList.remove('hidden');
-            }
-        }
-
-        generateBtn.addEventListener('click', () => generateImage());
-        
-        promptInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && e.ctrlKey) generateImage();
-        });
-
+        }        
     </script>
 </body>
 </html>

@@ -8,31 +8,11 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
-        
-        body {
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            background-color: #f8fafc;
-        }
-
-        .glass-card {
-            background: rgba(255, 255, 255, 0.8);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-        }
-
-        .loader {
-            border-top-color: #000;
-            animation: spinner 0.6s linear infinite;
-        }
-
-        @keyframes spinner {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .image-card:hover .overlay {
-            opacity: 1;
-        }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; }
+        .glass-card { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.3); }
+        .loader { border-top-color: #000; animation: spinner 0.6s linear infinite; }
+        @keyframes spinner { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .image-card:hover .overlay { opacity: 1; }
     </style>
 </head>
 <body>
@@ -40,7 +20,6 @@
     <div class="min-h-screen p-4 md:p-10">
         <div class="max-w-5xl mx-auto">
             
-            <!-- Header -->
             <header class="text-center mb-12">
                 <div class="inline-block bg-black p-4 rounded-3xl mb-6 shadow-2xl">
                     <i class="fas fa-wand-magic-sparkles text-white text-3xl"></i>
@@ -49,11 +28,10 @@
                 <p class="text-slate-500 mt-3 text-lg">Crea arte visual con Gemini Imagen 4.0</p>
             </header>
 
-            <!-- Generador -->
             <div class="glass-card rounded-[2.5rem] shadow-2xl shadow-slate-200/50 p-6 md:p-8 mb-16">
                 <div class="flex flex-col gap-6">
                     <textarea id="promptInput" 
-                        placeholder="Describe tu imagen aquí... (ej: Un paisaje futurista con pirámides de cristal y vegetación violeta)"
+                        placeholder="Describe tu imagen aquí... (ej: Un gato astronauta en Saturno)"
                         class="w-full text-xl p-6 bg-slate-50/50 rounded-3xl border-2 border-transparent focus:border-slate-200 focus:bg-white outline-none transition-all resize-none h-40 leading-relaxed"
                     ></textarea>
 
@@ -71,14 +49,12 @@
                     </div>
                 </div>
 
-                <!-- Error Box -->
-                <div id="errorBox" class="hidden mt-6 p-4 bg-red-50 border border-red-100 text-red-600 rounded-2xl flex items-center gap-3 animate-pulse">
+                <div id="errorBox" class="hidden mt-6 p-4 bg-red-50 border border-red-100 text-red-600 rounded-2xl flex items-center gap-3">
                     <i class="fas fa-circle-exclamation"></i>
                     <p id="errorMessage" class="text-sm font-semibold"></p>
                 </div>
             </div>
 
-            <!-- Galería -->
             <div class="mb-8 flex items-center justify-between px-2">
                 <h2 class="text-2xl font-extrabold text-slate-800 tracking-tight flex items-center gap-3">
                     <i class="fas fa-images text-slate-400"></i>
@@ -86,11 +62,8 @@
                 </h2>
             </div>
 
-            <div id="galleryGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-                <!-- Las imágenes aparecerán aquí -->
-            </div>
+            <div id="galleryGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8"></div>
 
-            <!-- Empty State -->
             <div id="emptyState" class="text-center py-24 bg-white/40 rounded-[3rem] border-4 border-dashed border-slate-100">
                 <i class="fas fa-palette text-slate-200 text-6xl mb-4"></i>
                 <p class="text-slate-400 text-xl font-medium">Tu galería está esperando tu primera idea</p>
@@ -100,9 +73,9 @@
     </div>
 
     <script>
-                    /**
+        /**
          * ==========================================
-         * AGREGA TU API KEY AQUÍ
+         * API KEY CONFIGURADA
          * ==========================================
          */
         const GEMINI_API_KEY = "AIzaSyARHFo87Vegeudk00SA5TrPggl4aeEbHqw";
@@ -119,16 +92,16 @@
 
         async function generateImage(retryCount = 0) {
             const prompt = promptInput.value.trim();
-            
             if (!prompt) return;
 
-            // LÓGICA CORREGIDA: Solo falla si está vacío
-            if (!GEMINI_API_KEY || GEMINI_API_KEY === "") {
-                showError("No has configurado la API Key en el código fuente.");
+            // Verificación simple: si está vacío o es el texto por defecto
+            if (!GEMINI_API_KEY || GEMINI_API_KEY === "" || GEMINI_API_KEY.includes("AGREGA")) {
+                showError("Configura una API Key válida en el código.");
                 return;
             }
 
             setLoadingState(true);
+            errorBox.classList.add('hidden');
 
             const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${GEMINI_API_KEY}`;
             
@@ -144,23 +117,21 @@
                     body: JSON.stringify(payload)
                 });
 
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    // Si el error es de la clave, lo dirá aquí
-                    throw new Error(errorData.error?.message || `Error del servidor (${response.status})`);
-                }
-
                 const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.error?.message || `Error ${response.status}`);
+                }
                 
                 if (result.predictions && result.predictions[0].bytesBase64Encoded) {
                     const base64Data = result.predictions[0].bytesBase64Encoded;
                     addImageToGallery(base64Data, prompt);
                     promptInput.value = "";
-                    errorBox.classList.add('hidden');
                 } else {
-                    throw new Error("La API no devolvió una imagen válida.");
+                    throw new Error("No se recibió una imagen. Intenta con otro texto.");
                 }
             } catch (err) {
+                // Reintento automático (máximo 5 veces) para errores de red o servidor
                 if (retryCount < 5 && !err.message.toLowerCase().includes("key")) {
                     const delay = Math.pow(2, retryCount) * 1000;
                     setTimeout(() => generateImage(retryCount + 1), delay);
@@ -170,7 +141,57 @@
             } finally {
                 if (retryCount === 0) setLoadingState(false);
             }
-        }        
+        }
+
+        function setLoadingState(loading) {
+            isGenerating = loading;
+            generateBtn.disabled = loading;
+            promptInput.disabled = loading;
+            if (loading) {
+                generateBtn.innerHTML = `<div class="loader w-5 h-5 border-2 rounded-full animate-spin"></div> <span>Generando...</span>`;
+                statusText.innerHTML = `<i class="fas fa-spinner animate-spin"></i> Procesando tu creación...`;
+            } else {
+                generateBtn.innerHTML = `<span>Generar Imagen</span> <i class="fas fa-paper-plane text-sm"></i>`;
+                statusText.innerHTML = `<i class="fas fa-circle-check text-emerald-500"></i> Listo para otra`;
+            }
+        }
+
+        function showError(msg) {
+            errorMessage.textContent = msg;
+            errorBox.classList.remove('hidden');
+        }
+
+        function addImageToGallery(base64, prompt) {
+            emptyState.classList.add('hidden');
+            const imageUrl = `data:image/png;base64,${base64}`;
+            const id = Date.now();
+            const card = document.createElement('div');
+            card.className = "image-card group relative bg-white rounded-[2.5rem] overflow-hidden shadow-lg border border-slate-100 transition-all hover:shadow-2xl hover:-translate-y-1";
+            card.innerHTML = `
+                <img src="${imageUrl}" alt="${prompt}" class="w-full aspect-square object-cover">
+                <div class="overlay absolute inset-0 bg-black/70 opacity-0 transition-opacity flex flex-col justify-end p-8 text-white">
+                    <p class="text-sm font-medium mb-6 line-clamp-3 italic">"${prompt}"</p>
+                    <div class="flex gap-3">
+                        <button onclick="downloadImg('${imageUrl}', ${id})" class="flex-1 bg-white text-black py-3 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-slate-100">
+                            <i class="fas fa-download"></i> Guardar
+                        </button>
+                        <button onclick="this.closest('.image-card').remove(); checkEmpty();" class="bg-red-500/20 hover:bg-red-500 text-white p-3 rounded-2xl">
+                            <i class="fas fa-trash-can"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+            galleryGrid.prepend(card);
+        }
+
+        function downloadImg(url, id) {
+            const a = document.createElement('a'); a.href = url; a.download = `ia-art-${id}.png`;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        }
+
+        function checkEmpty() { if (galleryGrid.children.length === 0) emptyState.classList.remove('hidden'); }
+
+        generateBtn.addEventListener('click', () => generateImage());
     </script>
 </body>
 </html>

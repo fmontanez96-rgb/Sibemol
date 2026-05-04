@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sib</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="icon" href="data:," />
+  </head>
+  <body>
+    <header class="top-header">
+      <h1>🎹 Sib</h1>
+    </header>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <nav>
+          <button class="piano-key" data-screen="cancionero">Cancionero</button>
+          <button class="piano-key" data-screen="remix">Remix</button>
+          <button class="piano-key" data-screen="acordes">Acordes</button>
+          <button class="piano-key" data-screen="nueva-cancion">NUEVA CANCIÓN</button>
+        </nav>
+      </aside>
+
+      <main class="content">
+        <section id="screen-cancionero" class="screen-panel hidden">
+          <h3>Cancionero</h3>
+          <div id="songbook-cards" class="songbook-cards"></div>
+
+        </section>
+
+        <section id="screen-remix" class="screen-panel hidden">
+          <h3>Remix</h3>
+          <p class="empty-text"></p>
+        </section>
+
+        <section id="screen-acordes" class="screen-panel hidden">
+          <section id="chords-section">
+            <h3>Acordes</h3>
+            <div id="chords-cards" class="songbook-cards"></div>
+          </section>
+        </section>
+
+        <section id="screen-nueva-cancion" class="screen-panel">
+          <section class="new-song-section">
+            <h3>Nueva canción</h3>
+            <button id="open-song-form" class="emoji-song-button" aria-label="Agregar nueva canción">
+              🎵
+            </button>
+          </section>
+
+          <section id="song-form-wrapper" class="song-form-wrapper hidden">
+            <form id="song-form" class="song-form">
+              <h3>Agregar canción</h3>
+              <label for="song-title">Título de la canción</label>
+              <input id="song-title" name="songTitle" type="text" required />
+
+              <label for="song-artist">Cantante o banda</label>
+              <input id="song-artist" name="songArtist" type="text" required />
+
+              <label for="song-lyrics">Letra completa (usa [Acorde]palabra para marcar acordes)</label>
+              <textarea id="song-lyrics" name="songLyrics" rows="8" placeholder="Ej: [G]Hoy [D]te [Em]vi" required></textarea>
+
+              <button type="submit" class="submit-song">Guardar canción</button>
+            </form>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <section id="song-detail-modal" class="song-detail-modal hidden" role="dialog" aria-modal="true" aria-labelledby="song-detail-title">
+      <article class="song-detail-panel">
+        <div class="detail-actions">
+          <button id="close-song-detail" class="close-song-detail" type="button" aria-label="Cerrar detalle">Volver</button>
+          <button id="save-song-chords" class="submit-song hidden" type="button">Guardar</button>
+        </div>
+        <h3 id="song-detail-title"></h3>
+        <p id="song-detail-artist" class="song-detail-artist"></p>
+        <div id="song-detail-chord-workspace" class="song-detail-chord-workspace hidden">
+          <p class="detail-help">Haz click en una palabra para elegir su acorde y luego guarda.</p>
+          <div id="chord-editor-panel" class="chord-editor-panel hidden">
+            <div class="chord-editor-row">
+              <label for="chord-root-select">Acorde</label>
+              <select id="chord-root-select"></select>
+            </div>
+            <div class="chord-editor-row">
+              <label for="chord-quality-select">Mayor/Menor</label>
+              <select id="chord-quality-select"></select>
+            </div>
+            <div class="chord-editor-row">
+              <label for="chord-accidental-select">Bemol / Sostenido</label>
+              <select id="chord-accidental-select"></select>
+            </div>
+            <button id="save-token-chord" type="button" class="submit-song">Guardar</button>
+          </div>
+          <div id="song-detail-lyrics-editor" class="lyrics-editor"></div>
+        </div>
+        <pre id="song-detail-lyrics" class="song-detail-lyrics"></pre>
+      </article>
+    </section>
+
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
+      import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-analytics.js";
+      import {
+        getFirestore,
+        collection,
+        addDoc,
+        getDocs,
+        doc,
+        updateDoc,
+        serverTimestamp
+      } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyC7dBfwy_UMucyMvom3tib8R4W09i6prf8",
+        authDomain: "sibemol-3e2ae.firebaseapp.com",
+        projectId: "sibemol-3e2ae",
+        storageBucket: "sibemol-3e2ae.firebasestorage.app",
+        messagingSenderId: "951976321027",
+        appId: "1:951976321027:web:f21ecef157a98da287ee36",
+        measurementId: "G-1X8EC7VYNL"
+      };
+
+      const firebaseApp = initializeApp(firebaseConfig);
+      getAnalytics(firebaseApp);
+      const db = getFirestore(firebaseApp);
+      const songsCollection = collection(db, "songs");
+
+      const openSongFormButton = document.getElementById("open-song-form");
+      const songFormWrapper = document.getElementById("song-form-wrapper");
+      const songForm = document.getElementById("song-form");
+      const songbookCards = document.getElementById("songbook-cards");
+      const chordsCards = document.getElementById("chords-cards");
+      const navButtons = document.querySelectorAll(".piano-key");
+      const screenPanels = document.querySelectorAll(".screen-panel");
+      const songDetailModal = document.getElementById("song-detail-modal");
+      const closeSongDetailButton = document.getElementById("close-song-detail");
+      const songDetailTitle = document.getElementById("song-detail-title");
+      const songDetailArtist = document.getElementById("song-detail-artist");
+      const songDetailLyrics = document.getElementById("song-detail-lyrics");
+      const songDetailChordWorkspace = document.getElementById("song-detail-chord-workspace");
+      const songDetailLyricsEditor = document.getElementById("song-detail-lyrics-editor");
+      const chordEditorPanel = document.getElementById("chord-editor-panel");
+      const chordRootSelect = document.getElementById("chord-root-select");
+      const chordQualitySelect = document.getElementById("chord-quality-select");
+      const chordAccidentalSelect = document.getElementById("chord-accidental-select");
+      const saveTokenChordButton = document.getElementById("save-token-chord");
+      const saveSongChordsButton = document.getElementById("save-song-chords");
+
+      const appState = { activeScreen: "nueva-cancion", songs: [] };
+      const songsById = new Map();
+      let selectedTokenKey = null;
+      let selectedTokenElement = null;
+
+      const naturalRoots = ["Do", "Re", "Mi", "Fa", "Sol", "La", "Si"];
+      const accidentalOptions = [
+        { label: "Natural", value: "" },
+        { label: "Sostenido (#)", value: "#" },
+        { label: "Bemol (b)", value: "b" }
+      ];
+      const qualityOptions = [
+        { label: "Mayor", value: "" },
+        { label: "Menor", value: "m" }
+      ];
+
+      const setActiveScreen = (screenName) => {
+        appState.activeScreen = screenName;
+        screenPanels.forEach((panel) => panel.classList.toggle("hidden", panel.id !== `screen-${screenName}`));
+      };
+
+      const tokenizeLyrics = (lyrics) => lyrics.split("\n").map((line) => line.trim().split(/\s+/).filter(Boolean));
+
+      const buildChordLabel = () => {
+        const root = chordRootSelect.value;
+        const accidental = chordAccidentalSelect.value;
+        const quality = chordQualitySelect.value;
+        return `${root}${accidental}${quality}`;
+      };
+
+      const fillChordSelectors = () => {
+        chordRootSelect.innerHTML = naturalRoots.map((root) => `<option value="${root}">${root}</option>`).join("");
+        chordQualitySelect.innerHTML = qualityOptions.map((option) => `<option value="${option.value}">${option.label}</option>`).join("");
+        chordAccidentalSelect.innerHTML = accidentalOptions.map((option) => `<option value="${option.value}">${option.label}</option>`).join("");
+      };
+
+
+      const renderChordPalette = () => {
+        fillChordSelectors();
+        chordRootSelect.selectedIndex = 0;
+        chordQualitySelect.selectedIndex = 0;
+        chordAccidentalSelect.selectedIndex = 0;
+        chordEditorPanel.classList.add("hidden");
+      };
+
+      const positionChordEditorNearToken = () => {
+        if (!selectedTokenElement) return;
+        const tokenRect = selectedTokenElement.getBoundingClientRect();
+        const workspaceRect = songDetailChordWorkspace.getBoundingClientRect();
+        const panelWidth = 250;
+        const panelHeight = 210;
+        const margin = 8;
+
+        let left = tokenRect.left - workspaceRect.left;
+        let top = tokenRect.bottom - workspaceRect.top + margin;
+
+        if (left + panelWidth > workspaceRect.width - margin) {
+          left = workspaceRect.width - panelWidth - margin;
+        }
+        if (left < margin) left = margin;
+
+        if (top + panelHeight > workspaceRect.height - margin) {
+          top = tokenRect.top - workspaceRect.top - panelHeight - margin;
+        }
+        if (top < margin) top = margin;
+
+        chordEditorPanel.style.left = `${left}px`;
+        chordEditorPanel.style.top = `${top}px`;
+      };
+
+      const renderSongLyricsEditor = (song) => {
+        songDetailLyricsEditor.innerHTML = "";
+        selectedTokenElement = null;
+        const lines = tokenizeLyrics(song.lyrics);
+        lines.forEach((tokens, lineIndex) => {
+          const line = document.createElement("p");
+          line.className = "lyrics-editor-line";
+          tokens.forEach((token, tokenIndex) => {
+            const tokenKey = `${lineIndex}-${tokenIndex}`;
+            const wordWrapper = document.createElement("button");
+            wordWrapper.type = "button";
+            wordWrapper.className = "lyrics-token";
+            if (tokenKey === selectedTokenKey) wordWrapper.classList.add("active");
+            if (tokenKey === selectedTokenKey) selectedTokenElement = wordWrapper;
+            const assignedChord = song.wordChords?.[tokenKey] || "";
+            wordWrapper.innerHTML = `<span class="token-chord">${assignedChord}</span><span>${token}</span>`;
+            wordWrapper.addEventListener("click", () => {
+              selectedTokenKey = tokenKey;
+              selectedTokenElement = wordWrapper;
+              chordEditorPanel.classList.remove("hidden");
+              positionChordEditorNearToken();
+              renderSongLyricsEditor(song);
+            });
+            line.appendChild(wordWrapper);
+          });
+          songDetailLyricsEditor.appendChild(line);
+        });
+        if (selectedTokenElement) positionChordEditorNearToken();
+      };
+
+      const openSongDetail = (songId, mode = "view") => {
+        const song = songsById.get(songId);
+        if (!song) return;
+        appState.activeSongId = song.id;
+        songDetailTitle.textContent = song.title;
+        songDetailArtist.textContent = song.artist;
+
+        const isChordMode = mode === "chords";
+        songDetailChordWorkspace.classList.toggle("hidden", !isChordMode);
+        songDetailLyrics.classList.toggle("hidden", isChordMode);
+        saveSongChordsButton.classList.toggle("hidden", !isChordMode);
+
+        if (isChordMode) {
+          selectedTokenKey = null;
+          renderChordPalette();
+          renderSongLyricsEditor(song);
+        } else {
+          songDetailLyrics.textContent = song.lyrics;
+        }
+        songDetailModal.classList.remove("hidden");
+      };
+
+      const closeSongDetail = () => {
+        songDetailModal.classList.add("hidden");
+        selectedTokenKey = null;
+        selectedTokenElement = null;
+        chordEditorPanel.classList.add("hidden");
+      };
+
+      const renderSongs = () => {
+        songsById.clear();
+        songbookCards.innerHTML = "";
+        chordsCards.innerHTML = "";
+        appState.songs.forEach((song) => {
+          songsById.set(song.id, song);
+          const songCard = document.createElement("article");
+          songCard.className = "song-card";
+          songCard.innerHTML = `<h4>${song.title}</h4><p>${song.artist}</p>`;
+          songCard.addEventListener("click", () => openSongDetail(song.id, "view"));
+          songbookCards.prepend(songCard);
+
+          const chordCard = document.createElement("article");
+          chordCard.className = "song-card";
+          chordCard.innerHTML = `<h4>${song.title}</h4><p>${song.artist}</p><p>Asignar acordes por palabra</p>`;
+          chordCard.addEventListener("click", () => openSongDetail(song.id, "chords"));
+          chordsCards.prepend(chordCard);
+        });
+      };
+
+      navButtons.forEach((button) => button.addEventListener("click", () => setActiveScreen(button.dataset.screen)));
+      openSongFormButton.addEventListener("click", () => songFormWrapper.classList.toggle("hidden"));
+      closeSongDetailButton.addEventListener("click", closeSongDetail);
+      songDetailModal.addEventListener("click", (event) => { if (event.target === songDetailModal) closeSongDetail(); });
+      songDetailChordWorkspace.addEventListener("click", (event) => {
+        if (!event.target.closest(".lyrics-token") && !event.target.closest("#chord-editor-panel")) {
+          selectedTokenKey = null;
+          selectedTokenElement = null;
+          chordEditorPanel.classList.add("hidden");
+          const activeSong = songsById.get(appState.activeSongId);
+          if (activeSong) renderSongLyricsEditor(activeSong);
+        }
+      });
+
+      songForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const title = songForm.songTitle.value.trim();
+        const artist = songForm.songArtist.value.trim();
+        const lyrics = songForm.songLyrics.value.trim();
+        if (!title || !artist || !lyrics) return;
+        saveSong({ title, artist, lyrics }).catch((error) => {
+          console.error("Error guardando canción:", error);
+          alert("No se pudo guardar la canción. Revisa la consola para más detalle.");
+        });
+      });
+
+      const loadSongs = async () => {
+        const snapshot = await getDocs(songsCollection);
+        appState.songs = snapshot.docs
+          .map((docItem) => ({ id: docItem.id, ...docItem.data() }))
+          .sort((a, b) => {
+            const aTime = a.createdAt?.seconds ?? 0;
+            const bTime = b.createdAt?.seconds ?? 0;
+            return bTime - aTime;
+          });
+        renderSongs();
+      };
+
+      const saveSong = async ({ title, artist, lyrics }) => {
+        await addDoc(songsCollection, {
+          title,
+          artist,
+          lyrics,
+          wordChords: {},
+          performers: {
+            band: artist,
+            singer: artist
+          },
+          createdAt: serverTimestamp()
+        });
+        await loadSongs();
+        songForm.reset();
+        songFormWrapper.classList.add("hidden");
+      };
+
+
+      const saveSongWordChords = async () => {
+        const song = songsById.get(appState.activeSongId);
+        if (!song) {
+          alert("No hay una canción activa para guardar.");
+          return;
+        }
+
+        try {
+          await updateDoc(doc(db, "songs", song.id), {
+            wordChords: song.wordChords || {}
+          });
+          alert("Acordes guardados correctamente.");
+        } catch (error) {
+          console.error("Error guardando acordes de la canción:", error);
+          alert("No se pudieron guardar los acordes. Inténtalo de nuevo.");
+        }
+      };
+
+      saveSongChordsButton.addEventListener("click", () => {
+        saveSongWordChords();
+      });
+
+      saveTokenChordButton.addEventListener("click", () => {
+        const song = songsById.get(appState.activeSongId);
+        if (!song || !selectedTokenKey) return;
+        song.wordChords[selectedTokenKey] = buildChordLabel();
+        renderSongLyricsEditor(song);
+      });
+
+      window.addEventListener("resize", positionChordEditorNearToken);
+
+      setActiveScreen(appState.activeScreen);
+      loadSongs().catch((error) => {
+        console.error("Error cargando canciones:", error);
+      });
+    </script>
+  </body>
+</html>

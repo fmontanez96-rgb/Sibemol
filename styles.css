@@ -188,6 +188,31 @@ body {
   color: #555;
 }
 
+.song-context-menu {
+  position: fixed;
+  z-index: 2000;
+  display: grid;
+  min-width: 170px;
+  border: 1px solid #dedede;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+  padding: 6px;
+}
+
+.song-context-option {
+  border: 0;
+  text-align: left;
+  background: transparent;
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.song-context-option:hover {
+  background: #f2f2f2;
+}
+
 .song-detail-modal {
   position: fixed;
   inset: 0;
@@ -243,6 +268,12 @@ body {
   flex-direction: column;
   align-items: flex-start;
   gap: 4px;
+}
+
+.clickable-token {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
 }
 
 .hidden {

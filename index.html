@@ -451,11 +451,21 @@
         songDetailModal.classList.remove("hidden");
       };
 
-      const getRangeTokenKeys = (start, end) => {
+      const getRangeTokenKeys = (song, start, end) => {
+        const ordered = getOrderedRange(start, end);
+        if (!ordered) return [];
+        const lines = tokenizeLyrics(song.lyrics);
         const result = [];
-        for (let line = start.lineIndex; line <= end.lineIndex; line += 1) {
-          const startToken = line === start.lineIndex ? start.tokenIndex : 0;
-          const endToken = line === end.lineIndex ? end.tokenIndex : Number.MAX_SAFE_INTEGER;
+
+        for (let line = ordered.start.lineIndex; line <= ordered.end.lineIndex; line += 1) {
+          const lineTokens = lines[line] || [];
+          if (!lineTokens.length) continue;
+
+          const startToken = line === ordered.start.lineIndex ? ordered.start.tokenIndex : 0;
+          const maxTokenIndex = lineTokens.length - 1;
+          const requestedEndToken = line === ordered.end.lineIndex ? ordered.end.tokenIndex : maxTokenIndex;
+          const endToken = Math.min(requestedEndToken, maxTokenIndex);
+
           for (let token = startToken; token <= endToken; token += 1) {
             result.push(`${line}-${token}`);
           }
@@ -483,13 +493,19 @@
           }
           if (!selectionState.secondRangeEnd) {
             selectionState.secondRangeEnd = picked;
-            const firstTokenKeys = getRangeTokenKeys(selectionState.firstRangeStart, selectionState.firstRangeEnd);
-            const secondTokenKeys = getRangeTokenKeys(selectionState.secondRangeStart, selectionState.secondRangeEnd);
+            const firstTokenKeys = getRangeTokenKeys(song, selectionState.firstRangeStart, selectionState.firstRangeEnd);
+            const secondTokenKeys = getRangeTokenKeys(song, selectionState.secondRangeStart, selectionState.secondRangeEnd);
             const firstChords = firstTokenKeys.map((key) => song.wordChords?.[key] || "").filter(Boolean);
             const secondChords = secondTokenKeys.map((key) => song.wordChords?.[key] || "").filter(Boolean);
             const repetitionData = {
               firstBlock: { start: selectionState.firstRangeStart, end: selectionState.firstRangeEnd, chords: firstChords },
-              secondBlock: { start: selectionState.secondRangeStart, end: selectionState.secondRangeEnd, chords: secondChords },
+              secondBlock: {
+                start: selectionState.secondRangeStart,
+                end: selectionState.secondRangeEnd,
+                chords: firstChords,
+                detectedChords: secondChords,
+                sameAsFirstBlock: true
+              },
               savedAt: new Date().toISOString()
             };
             await updateDoc(doc(db, "songs", song.id), { repetitions: [...(song.repetitions || []), repetitionData] });

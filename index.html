@@ -96,7 +96,10 @@
           </div>
           <div id="song-detail-lyrics-editor" class="lyrics-editor"></div>
         </div>
-        <div id="song-detail-lyrics" class="song-detail-lyrics"></div>
+        <div class="song-detail-content">
+          <div id="song-detail-lyrics" class="song-detail-lyrics"></div>
+          <aside id="song-detail-chords-only" class="song-detail-chords-only hidden" aria-label="Secuencia de acordes"></aside>
+        </div>
       </article>
     </section>
 
@@ -140,6 +143,7 @@
       const songDetailTitle = document.getElementById("song-detail-title");
       const songDetailArtist = document.getElementById("song-detail-artist");
       const songDetailLyrics = document.getElementById("song-detail-lyrics");
+      const songDetailChordsOnly = document.getElementById("song-detail-chords-only");
       const songDetailChordWorkspace = document.getElementById("song-detail-chord-workspace");
       const songDetailLyricsEditor = document.getElementById("song-detail-lyrics-editor");
       const chordEditorPanel = document.getElementById("chord-editor-panel");
@@ -269,6 +273,29 @@
         });
       };
 
+
+      const renderSongChordsOnly = (song) => {
+        songDetailChordsOnly.innerHTML = "";
+        const lines = tokenizeLyrics(song.lyrics);
+
+        lines.forEach((tokens, lineIndex) => {
+          const chords = tokens
+            .map((_, tokenIndex) => song.wordChords?.[`${lineIndex}-${tokenIndex}`] || "")
+            .filter(Boolean);
+
+          if (!chords.length) return;
+
+          const chordLine = document.createElement("p");
+          chordLine.className = "chords-only-line";
+          chordLine.textContent = chords.join("   ");
+          songDetailChordsOnly.appendChild(chordLine);
+        });
+
+        if (!songDetailChordsOnly.children.length) {
+          songDetailChordsOnly.innerHTML = '<p class="empty-chords-only">No hay acordes asignados todavía.</p>';
+        }
+      };
+
       const openSongDetail = (songId, mode = "view") => {
         const song = songsById.get(songId);
         if (!song) return;
@@ -280,6 +307,7 @@
         songDetailChordWorkspace.classList.toggle("hidden", !isChordMode);
         songDetailLyrics.classList.toggle("hidden", isChordMode);
         saveSongChordsButton.classList.toggle("hidden", !isChordMode);
+        songDetailChordsOnly.classList.toggle("hidden", isChordMode);
 
         if (isChordMode) {
           selectedTokenKey = null;
@@ -287,6 +315,7 @@
           renderSongLyricsEditor(song);
         } else {
           renderSongLyricsWithChords(song);
+          renderSongChordsOnly(song);
         }
         songDetailModal.classList.remove("hidden");
       };

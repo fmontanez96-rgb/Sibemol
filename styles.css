@@ -200,7 +200,7 @@ body {
 }
 
 .song-detail-panel {
-  width: min(760px, 100%);
+  width: min(980px, 100%);
   max-height: 90vh;
   overflow: auto;
   border-radius: 14px;
@@ -409,4 +409,44 @@ body {
   margin-top: 2px;
   padding: 8px 10px;
   font-size: 0.92rem;
+}
+
+.song-detail-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  gap: 18px;
+  align-items: start;
+}
+
+.song-detail-chords-only {
+  margin-top: 16px;
+  border-left: 1px solid #ececec;
+  padding-left: 14px;
+}
+
+.chords-only-line {
+  margin: 0 0 10px;
+  color: #173cad;
+  font-weight: 700;
+  font-size: 0.95rem;
+  line-height: 1.3;
+}
+
+.empty-chords-only {
+  margin: 0;
+  color: #666;
+  font-style: italic;
+}
+
+@media (max-width: 900px) {
+  .song-detail-content {
+    grid-template-columns: 1fr;
+  }
+
+  .song-detail-chords-only {
+    border-left: 0;
+    border-top: 1px solid #ececec;
+    padding-left: 0;
+    padding-top: 12px;
+  }
 }

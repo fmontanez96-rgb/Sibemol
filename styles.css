@@ -231,7 +231,7 @@ body {
 }
 
 .hidden {
-  display: none;
+  display: none !important;
 }
 
 @media (max-width: 768px) {
@@ -356,6 +356,24 @@ body {
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
 }
 
+
+.close-chord-editor {
+  justify-self: end;
+  width: 28px;
+  height: 28px;
+  border: 1px solid #d2d2d2;
+  border-radius: 999px;
+  background: #fff;
+  color: #333;
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.close-chord-editor:hover {
+  background: #111;
+  color: #fff;
+}
 .chord-editor-row {
   display: grid;
   gap: 2px;

@@ -79,6 +79,7 @@
         <div id="song-detail-chord-workspace" class="song-detail-chord-workspace hidden">
           <p class="detail-help">Haz click en una palabra para elegir su acorde y luego guarda.</p>
           <div id="chord-editor-panel" class="chord-editor-panel hidden">
+            <button id="close-chord-editor" class="close-chord-editor" type="button" aria-label="Cerrar editor de acordes">✕</button>
             <div class="chord-editor-row">
               <label for="chord-root-select">Acorde</label>
               <select id="chord-root-select"></select>
@@ -147,6 +148,7 @@
       const chordAccidentalSelect = document.getElementById("chord-accidental-select");
       const saveTokenChordButton = document.getElementById("save-token-chord");
       const saveSongChordsButton = document.getElementById("save-song-chords");
+      const closeChordEditorButton = document.getElementById("close-chord-editor");
 
       const appState = { activeScreen: "nueva-cancion", songs: [] };
       const songsById = new Map();
@@ -270,11 +272,15 @@
         songDetailModal.classList.remove("hidden");
       };
 
-      const closeSongDetail = () => {
-        songDetailModal.classList.add("hidden");
+      const closeTokenEditor = () => {
         selectedTokenKey = null;
         selectedTokenElement = null;
         chordEditorPanel.classList.add("hidden");
+      };
+
+      const closeSongDetail = () => {
+        songDetailModal.classList.add("hidden");
+        closeTokenEditor();
       };
 
       const renderSongs = () => {
@@ -303,9 +309,7 @@
       songDetailModal.addEventListener("click", (event) => { if (event.target === songDetailModal) closeSongDetail(); });
       songDetailChordWorkspace.addEventListener("click", (event) => {
         if (!event.target.closest(".lyrics-token") && !event.target.closest("#chord-editor-panel")) {
-          selectedTokenKey = null;
-          selectedTokenElement = null;
-          chordEditorPanel.classList.add("hidden");
+          closeTokenEditor();
           const activeSong = songsById.get(appState.activeSongId);
           if (activeSong) renderSongLyricsEditor(activeSong);
         }
@@ -365,20 +369,28 @@
             wordChords: song.wordChords || {}
           });
           alert("Acordes guardados correctamente.");
+          closeSongDetail();
         } catch (error) {
           console.error("Error guardando acordes de la canción:", error);
           alert("No se pudieron guardar los acordes. Inténtalo de nuevo.");
         }
       };
 
-      saveSongChordsButton.addEventListener("click", () => {
-        saveSongWordChords();
+      saveSongChordsButton.addEventListener("click", async () => {
+        await saveSongWordChords();
+      });
+
+      closeChordEditorButton.addEventListener("click", () => {
+        const song = songsById.get(appState.activeSongId);
+        closeTokenEditor();
+        if (song) renderSongLyricsEditor(song);
       });
 
       saveTokenChordButton.addEventListener("click", () => {
         const song = songsById.get(appState.activeSongId);
         if (!song || !selectedTokenKey) return;
         song.wordChords[selectedTokenKey] = buildChordLabel();
+        closeTokenEditor();
         renderSongLyricsEditor(song);
       });
 

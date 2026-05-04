@@ -95,7 +95,7 @@
           </div>
           <div id="song-detail-lyrics-editor" class="lyrics-editor"></div>
         </div>
-        <pre id="song-detail-lyrics" class="song-detail-lyrics"></pre>
+        <div id="song-detail-lyrics" class="song-detail-lyrics"></div>
       </article>
     </section>
 
@@ -248,6 +248,25 @@
         if (selectedTokenElement) positionChordEditorNearToken();
       };
 
+
+      const renderSongLyricsWithChords = (song) => {
+        songDetailLyrics.innerHTML = "";
+        const lines = tokenizeLyrics(song.lyrics);
+        lines.forEach((tokens, lineIndex) => {
+          const line = document.createElement("p");
+          line.className = "song-lyrics-line";
+          tokens.forEach((token, tokenIndex) => {
+            const tokenKey = `${lineIndex}-${tokenIndex}`;
+            const wrapper = document.createElement("span");
+            wrapper.className = "song-lyrics-token";
+            const chord = song.wordChords?.[tokenKey] || "";
+            wrapper.innerHTML = `<span class="token-chord">${chord}</span><span>${token}</span>`;
+            line.appendChild(wrapper);
+          });
+          songDetailLyrics.appendChild(line);
+        });
+      };
+
       const openSongDetail = (songId, mode = "view") => {
         const song = songsById.get(songId);
         if (!song) return;
@@ -265,7 +284,7 @@
           renderChordPalette();
           renderSongLyricsEditor(song);
         } else {
-          songDetailLyrics.textContent = song.lyrics;
+          renderSongLyricsWithChords(song);
         }
         songDetailModal.classList.remove("hidden");
       };

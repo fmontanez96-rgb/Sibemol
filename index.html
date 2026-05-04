@@ -288,25 +288,78 @@
       };
 
 
+      const getOrderedRange = (start, end) => {
+        if (!start || !end) return null;
+        const startsAfter = start.lineIndex > end.lineIndex
+          || (start.lineIndex === end.lineIndex && start.tokenIndex > end.tokenIndex);
+        return startsAfter ? { start: end, end: start } : { start, end };
+      };
+
+      const chordsFromRange = (song, start, end) => {
+        const ordered = getOrderedRange(start, end);
+        if (!ordered) return [];
+        const result = [];
+        for (let line = ordered.start.lineIndex; line <= ordered.end.lineIndex; line += 1) {
+          const lineTokens = tokenizeLyrics(song.lyrics)[line] || [];
+          const startToken = line === ordered.start.lineIndex ? ordered.start.tokenIndex : 0;
+          const endToken = line === ordered.end.lineIndex
+            ? ordered.end.tokenIndex
+            : lineTokens.length - 1;
+          for (let token = startToken; token <= endToken; token += 1) {
+            const chord = song.wordChords?.[`${line}-${token}`] || "";
+            if (chord) result.push(chord);
+          }
+        }
+        return result;
+      };
+
+      const formatSectionLabel = (type) => {
+        const map = { estrofa: 'Estrofa', estribillo: 'Estribillo', puente: 'Puente' };
+        return map[type] || 'Sección';
+      };
+
       const renderSongChordsOnly = (song) => {
         songDetailChordsOnly.innerHTML = "";
-        const lines = tokenizeLyrics(song.lyrics);
+        const sections = [...(song.sections || [])]
+          .map((section) => ({ ...section, ordered: getOrderedRange(section.start, section.end) }))
+          .filter((section) => section.ordered)
+          .sort((a, b) => {
+            if (a.ordered.start.lineIndex !== b.ordered.start.lineIndex) {
+              return a.ordered.start.lineIndex - b.ordered.start.lineIndex;
+            }
+            return a.ordered.start.tokenIndex - b.ordered.start.tokenIndex;
+          });
 
-        lines.forEach((tokens, lineIndex) => {
-          const chords = tokens
-            .map((_, tokenIndex) => song.wordChords?.[`${lineIndex}-${tokenIndex}`] || "")
+        if (sections.length) {
+          const rawSummary = sections
+            .map((section) => {
+              const chords = chordsFromRange(song, section.start, section.end);
+              if (!chords.length) return null;
+              return { label: formatSectionLabel(section.type), chordsText: chords.join('   ') };
+            })
             .filter(Boolean);
 
-          if (!chords.length) return;
+          const compactSummary = [];
+          rawSummary.forEach((entry) => {
+            const previous = compactSummary[compactSummary.length - 1];
+            if (previous && previous.label === entry.label && previous.chordsText === entry.chordsText) {
+              previous.count += 1;
+            } else {
+              compactSummary.push({ ...entry, count: 1 });
+            }
+          });
 
-          const chordLine = document.createElement("p");
-          chordLine.className = "chords-only-line";
-          chordLine.textContent = chords.join("   ");
-          songDetailChordsOnly.appendChild(chordLine);
-        });
+          compactSummary.forEach((entry) => {
+            const chordLine = document.createElement('p');
+            chordLine.className = 'chords-only-line';
+            const countSuffix = entry.count > 1 ? ` x${entry.count}` : '';
+            chordLine.textContent = `${entry.label}${countSuffix}: ${entry.chordsText}`;
+            songDetailChordsOnly.appendChild(chordLine);
+          });
+        }
 
         if (!songDetailChordsOnly.children.length) {
-          songDetailChordsOnly.innerHTML = '<p class="empty-chords-only">No hay acordes asignados todavía.</p>';
+          songDetailChordsOnly.innerHTML = '<p class="empty-chords-only">Define secciones y acordes para ver el resumen.</p>';
         }
       };
 

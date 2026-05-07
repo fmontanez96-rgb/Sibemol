@@ -473,13 +473,14 @@
 
       const setChordSelectorsFromLabel = (chordLabel) => {
         resetChordSelectors();
-        if (!chordLabel) return;
+        const [firstChordLabel] = normalizeChordList(chordLabel);
+        if (!firstChordLabel) return;
 
-        const root = naturalRoots.find((candidateRoot) => chordLabel.startsWith(candidateRoot));
+        const root = naturalRoots.find((candidateRoot) => firstChordLabel.startsWith(candidateRoot));
         if (!root) return;
 
-        const quality = chordLabel.endsWith("m") ? "m" : "";
-        const withoutRoot = chordLabel.slice(root.length);
+        const quality = firstChordLabel.endsWith("m") ? "m" : "";
+        const withoutRoot = firstChordLabel.slice(root.length);
         const accidental = withoutRoot.replace(quality, "");
 
         chordRootSelect.value = root;
@@ -506,6 +507,15 @@
       );
 
       const hasOwnWordChord = (wordChords, tokenKey) => Object.prototype.hasOwnProperty.call(wordChords || {}, tokenKey);
+
+      const normalizeChordList = (chordValue) => {
+        if (Array.isArray(chordValue)) return chordValue.filter(Boolean);
+        return chordValue ? [chordValue] : [];
+      };
+
+      const formatChordValue = (chordValue) => normalizeChordList(chordValue).join(" / ");
+
+      const hasChordValue = (chordValue) => normalizeChordList(chordValue).length > 0;
 
       const renderBulkChordSequence = () => {
         bulkChordsSequence.innerHTML = "";
@@ -653,8 +663,8 @@
             const assignedChord = getEffectiveWordChord(song, lineIndex, tokenIndex);
             const chordChip = document.createElement("span");
             chordChip.className = "token-chord";
-            chordChip.textContent = assignedChord;
-            if (assignedChord) {
+            chordChip.textContent = formatChordValue(assignedChord);
+            if (hasChordValue(assignedChord)) {
               chordChip.classList.add("token-chord-draggable");
               chordChip.draggable = true;
               chordChip.title = "Haz click para editar este acorde o arrástralo hacia otra palabra";
@@ -662,7 +672,7 @@
                 draggedChord = { chord: assignedChord, sourceTokenKey: tokenKey };
                 wordWrapper.classList.add("drag-source");
                 event.dataTransfer.effectAllowed = "move";
-                event.dataTransfer.setData("text/plain", assignedChord);
+                event.dataTransfer.setData("text/plain", formatChordValue(assignedChord));
               });
               chordChip.addEventListener("dragend", () => {
                 draggedChord = null;
@@ -677,7 +687,7 @@
             wordWrapper.addEventListener("click", () => {
               selectedTokenKey = tokenKey;
               setChordSelectorsFromLabel(assignedChord);
-              setDeleteTokenChordVisibility(Boolean(assignedChord));
+              setDeleteTokenChordVisibility(hasChordValue(assignedChord));
               chordEditorPanel.classList.remove("hidden");
               renderSongLyricsEditor(song);
             });
@@ -796,8 +806,9 @@
           tokens.forEach((token, tokenIndex) => {
             if (!isTokenInSectionRange(lineIndex, tokenIndex, section)) return;
             const chord = getEffectiveWordChord(song, lineIndex, tokenIndex);
-            if (!chord) return;
-            chords.push(chord);
+            const chordList = normalizeChordList(chord);
+            if (!chordList.length) return;
+            chords.push(...chordList);
           });
         });
 
@@ -919,7 +930,7 @@
             if (!isTokenInSectionRange(lineIndex, tokenIndex, section)) return;
             lineWords.push(token);
             const chord = getEffectiveWordChord(song, lineIndex, tokenIndex);
-            if (chord) lineChords.push(chord);
+            lineChords.push(...normalizeChordList(chord));
           });
 
           if (lineWords.length) {
@@ -1245,8 +1256,37 @@
         const sourceTokenKeys = getRepetitionBlockTokenKeys(song, sourceBlock);
         const targetTokenKeys = getRepetitionBlockTokenKeys(song, targetBlock);
         const tokenOffset = sourceTokenKeys.indexOf(sourceTokenKey);
-        if (tokenOffset < 0) return null;
-        return targetTokenKeys[tokenOffset] || null;
+        if (tokenOffset < 0 || !targetTokenKeys.length) return null;
+        if (sourceTokenKeys.length === targetTokenKeys.length) return targetTokenKeys[tokenOffset] || null;
+
+        const mappedOffset = Math.round((tokenOffset / Math.max(sourceTokenKeys.length - 1, 1)) * Math.max(targetTokenKeys.length - 1, 0));
+        return targetTokenKeys[mappedOffset] || null;
+      };
+
+      const getRepetitionBlockChordSequence = (tokenKeys, wordChords) => tokenKeys.flatMap((tokenKey) => (
+        normalizeChordList(wordChords?.[tokenKey])
+      ));
+
+      const distributeChordSequenceAcrossTokens = (chords, tokenKeys) => {
+        if (!chords.length || !tokenKeys.length) return {};
+        const tokenChordMap = {};
+
+        chords.forEach((chord, chordIndex) => {
+          const tokenOffset = Math.min(
+            Math.floor((chordIndex * tokenKeys.length) / chords.length),
+            tokenKeys.length - 1
+          );
+          const tokenKey = tokenKeys[tokenOffset];
+          if (!tokenChordMap[tokenKey]) tokenChordMap[tokenKey] = [];
+          tokenChordMap[tokenKey].push(chord);
+        });
+
+        return Object.fromEntries(
+          Object.entries(tokenChordMap).map(([tokenKey, assignedChords]) => [
+            tokenKey,
+            assignedChords.length === 1 ? assignedChords[0] : assignedChords
+          ])
+        );
       };
 
       const getCanonicalRepetitionTokenKey = (song, tokenKey) => {
@@ -1284,16 +1324,18 @@
           blocks.forEach((block) => {
             const referencedIndex = getReferencedRepetitionBlockIndex(blocks, block);
             if (referencedIndex === null) return;
+
             const sourceTokenKeys = getRepetitionBlockTokenKeys(song, block);
             const targetTokenKeys = getRepetitionBlockTokenKeys(song, blocks[referencedIndex]);
+            const targetChordSequence = getRepetitionBlockChordSequence(targetTokenKeys, nextWordChords);
+            const distributedChords = distributeChordSequenceAcrossTokens(targetChordSequence, sourceTokenKeys);
 
-            sourceTokenKeys.forEach((sourceTokenKey, tokenOffset) => {
-              const targetTokenKey = targetTokenKeys[tokenOffset];
-              if (!targetTokenKey || !nextWordChords[targetTokenKey]) {
+            sourceTokenKeys.forEach((sourceTokenKey) => {
+              if (!hasOwnWordChord(distributedChords, sourceTokenKey)) {
                 delete nextWordChords[sourceTokenKey];
                 return;
               }
-              nextWordChords[sourceTokenKey] = nextWordChords[targetTokenKey];
+              nextWordChords[sourceTokenKey] = distributedChords[sourceTokenKey];
             });
           });
         }

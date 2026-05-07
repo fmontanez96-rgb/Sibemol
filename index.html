@@ -137,7 +137,10 @@
                   <label for="chord-accidental-select">Bemol / Sostenido</label>
                   <select id="chord-accidental-select"></select>
                 </div>
-                <button id="save-token-chord" type="button" class="submit-song">Guardar</button>
+                <div class="chord-editor-actions">
+                  <button id="save-token-chord" type="button" class="submit-song">Guardar</button>
+                  <button id="delete-token-chord" type="button" class="delete-token-chord hidden" aria-label="Borrar acorde">✖</button>
+                </div>
               </div>
               <div id="song-detail-lyrics-editor" class="lyrics-editor"></div>
             </div>
@@ -313,6 +316,7 @@
       const chordQualitySelect = document.getElementById("chord-quality-select");
       const chordAccidentalSelect = document.getElementById("chord-accidental-select");
       const saveTokenChordButton = document.getElementById("save-token-chord");
+      const deleteTokenChordButton = document.getElementById("delete-token-chord");
       const openBulkChordsButton = document.getElementById("open-bulk-chords");
       const saveSongChordsButton = document.getElementById("save-song-chords");
       const bulkChordsModal = document.getElementById("bulk-chords-modal");
@@ -392,6 +396,39 @@
         chordRootSelect.innerHTML = naturalRoots.map((root) => `<option value="${root}">${root}</option>`).join("");
         chordQualitySelect.innerHTML = qualityOptions.map((option) => `<option value="${option.value}">${option.label}</option>`).join("");
         chordAccidentalSelect.innerHTML = accidentalOptions.map((option) => `<option value="${option.value}">${option.label}</option>`).join("");
+      };
+
+      const resetChordSelectors = () => {
+        chordRootSelect.selectedIndex = 0;
+        chordQualitySelect.selectedIndex = 0;
+        chordAccidentalSelect.selectedIndex = 0;
+      };
+
+      const setChordSelectorsFromLabel = (chordLabel) => {
+        resetChordSelectors();
+        if (!chordLabel) return;
+
+        const root = naturalRoots.find((candidateRoot) => chordLabel.startsWith(candidateRoot));
+        if (!root) return;
+
+        const quality = chordLabel.endsWith("m") ? "m" : "";
+        const withoutRoot = chordLabel.slice(root.length);
+        const accidental = withoutRoot.replace(quality, "");
+
+        chordRootSelect.value = root;
+        chordQualitySelect.value = quality;
+        chordAccidentalSelect.value = accidentalOptions.some((option) => option.value === accidental) ? accidental : "";
+      };
+
+      const setDeleteTokenChordVisibility = (hasChord) => {
+        deleteTokenChordButton.classList.toggle("hidden", !hasChord);
+      };
+
+      const closeChordEditorPanel = () => {
+        selectedTokenKey = null;
+        selectedTokenElement = null;
+        chordEditorPanel.classList.add("hidden");
+        setDeleteTokenChordVisibility(false);
       };
 
 
@@ -478,10 +515,8 @@
 
       const renderChordPalette = () => {
         fillChordSelectors();
-        chordRootSelect.selectedIndex = 0;
-        chordQualitySelect.selectedIndex = 0;
-        chordAccidentalSelect.selectedIndex = 0;
-        chordEditorPanel.classList.add("hidden");
+        resetChordSelectors();
+        closeChordEditorPanel();
         closeBulkChordsModal();
       };
 
@@ -554,7 +589,7 @@
             if (assignedChord) {
               chordChip.classList.add("token-chord-draggable");
               chordChip.draggable = true;
-              chordChip.title = "Arrastra este acorde hacia otra palabra";
+              chordChip.title = "Haz click para editar este acorde o arrástralo hacia otra palabra";
               chordChip.addEventListener("dragstart", (event) => {
                 draggedChord = { chord: assignedChord, sourceTokenKey: tokenKey };
                 wordWrapper.classList.add("drag-source");
@@ -573,9 +608,9 @@
             wordWrapper.append(chordChip, wordText);
             wordWrapper.addEventListener("click", () => {
               selectedTokenKey = tokenKey;
-              selectedTokenElement = wordWrapper;
+              setChordSelectorsFromLabel(assignedChord);
+              setDeleteTokenChordVisibility(Boolean(assignedChord));
               chordEditorPanel.classList.remove("hidden");
-              positionChordEditorNearToken();
               renderSongLyricsEditor(song);
             });
             wordWrapper.addEventListener("dragover", (event) => {
@@ -1301,9 +1336,7 @@
 
       const closeSongDetail = () => {
         songDetailModal.classList.add("hidden");
-        selectedTokenKey = null;
-        selectedTokenElement = null;
-        chordEditorPanel.classList.add("hidden");
+        closeChordEditorPanel();
         closeBulkChordsModal();
       };
 
@@ -1560,9 +1593,7 @@
       });
       songDetailChordWorkspace.addEventListener("click", (event) => {
         if (!event.target.closest(".lyrics-token") && !event.target.closest("#chord-editor-panel")) {
-          selectedTokenKey = null;
-          selectedTokenElement = null;
-          chordEditorPanel.classList.add("hidden");
+          closeChordEditorPanel();
           const activeSong = songsById.get(appState.activeSongId);
           if (activeSong) renderSongLyricsEditor(activeSong);
         }
@@ -1670,6 +1701,20 @@
         const canonicalTokenKey = getCanonicalRepetitionTokenKey(song, selectedTokenKey);
         song.wordChords[canonicalTokenKey] = buildChordLabel();
         song.wordChords = syncRepeatedBlockChords(song, song.repetitionBlocks || [], song.wordChords);
+        closeChordEditorPanel();
+        renderSongLyricsEditor(song);
+      });
+
+      deleteTokenChordButton.addEventListener("click", () => {
+        const song = songsById.get(appState.activeSongId);
+        if (!song || !selectedTokenKey) return;
+        const canonicalTokenKey = getCanonicalRepetitionTokenKey(song, selectedTokenKey);
+        if (song.wordChords) {
+          delete song.wordChords[canonicalTokenKey];
+          delete song.wordChords[selectedTokenKey];
+          song.wordChords = syncRepeatedBlockChords(song, song.repetitionBlocks || [], song.wordChords);
+        }
+        closeChordEditorPanel();
         renderSongLyricsEditor(song);
       });
 

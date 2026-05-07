@@ -725,3 +725,110 @@ body {
 .repetition-block-button:hover {
   background: linear-gradient(145deg, #ffffff 0%, #e1e4e8 48%, #c6ccd3 100%);
 }
+
+.repetitions-line {
+  align-items: flex-start;
+  display: grid;
+  gap: 8px 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.repetition-line-words {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+}
+
+.repetition-line-actions {
+  align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 92px;
+}
+
+.repetition-token.in-repetition-block {
+  border-color: currentColor;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 25%, transparent);
+  font-weight: 700;
+}
+
+.repetition-block-button {
+  align-items: center;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  display: inline-flex;
+  font-weight: 800;
+  justify-content: center;
+  line-height: 1;
+  min-width: 86px;
+  padding: 8px 12px;
+  white-space: nowrap;
+}
+
+.repetition-block-button:hover {
+  filter: brightness(1.04);
+  transform: translateY(-1px);
+}
+
+.repetition-block-menu {
+  background: #fff;
+  border: 1px solid #d2d6dc;
+  border-radius: 12px;
+  box-shadow: 0 14px 35px rgba(0, 0, 0, 0.18);
+  display: grid;
+  gap: 4px;
+  min-width: 150px;
+  padding: 8px;
+  position: absolute;
+  z-index: 30;
+}
+
+.repetition-block-menu button,
+.repetition-repeat-option {
+  background: #f7f8fa;
+  border: 1px solid #e1e4e8;
+  border-radius: 9px;
+  color: #1f2933;
+  cursor: pointer;
+  font-weight: 700;
+  padding: 9px 12px;
+  text-align: left;
+}
+
+.repetition-block-menu button:hover,
+.repetition-repeat-option:hover {
+  filter: brightness(0.98);
+  transform: translateY(-1px);
+}
+
+.repetition-repeat-panel {
+  max-width: 420px;
+}
+
+.repetition-repeat-list {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0;
+}
+
+.repetition-repeat-option {
+  border-color: currentColor;
+  text-align: center;
+}
+
+@media (max-width: 680px) {
+  .repetitions-line {
+    grid-template-columns: 1fr;
+  }
+
+  .repetition-line-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}
+
+.repetition-block-menu.hidden {
+  display: none;
+}

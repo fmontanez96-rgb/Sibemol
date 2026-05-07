@@ -54,7 +54,7 @@
         <section id="screen-repeticiones" class="screen-panel hidden">
           <h3>Repeticiones</h3>
           <p id="repetitions-song-label" class="empty-text">Selecciona una canción desde el menú contextual.</p>
-          <pre id="repetitions-lyrics" class="song-detail-lyrics"></pre>
+          <div id="repetitions-lyrics" class="repetitions-editor"></div>
         </section>
 
         <section id="screen-acordes" class="screen-panel hidden">
@@ -228,6 +228,8 @@
       let activeSectionsSongId = null;
       let sectionSelectionStart = null;
       let sectionSelectionEnd = null;
+      let activeRepetitionsSongId = null;
+      let repetitionSelectionStart = null;
       let selectedPerformer = null;
 
       const naturalRoots = ["Do", "Re", "Mi", "Fa", "Sol", "La", "Si"];
@@ -537,8 +539,106 @@
         renderSectionsEditor(song.id);
       };
 
+      const getTokenRepetitionBlock = (song, lineIndex, tokenIndex) => {
+        const blocks = song.repetitionBlocks || [];
+        return blocks.find((block) => isTokenInSectionRange(lineIndex, tokenIndex, block));
+      };
+
+      const getRepetitionBlockLabel = (song, block) => {
+        const blockIndex = (song.repetitionBlocks || []).indexOf(block);
+        return `Bloque ${blockIndex + 1}`;
+      };
+
+      const createRepetitionWordButton = (token, lineIndex, tokenIndex) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "lyrics-token repetition-token";
+        button.textContent = token;
+        button.dataset.tokenKey = `${lineIndex}-${tokenIndex}`;
+        if (repetitionSelectionStart?.line === lineIndex && repetitionSelectionStart?.token === tokenIndex) {
+          button.classList.add("active");
+        }
+        button.addEventListener("click", () => handleRepetitionTokenClick(lineIndex, tokenIndex));
+        return button;
+      };
+
+      const appendRepetitionBlockButton = (song, block, blockTokens, line) => {
+        const blockButton = document.createElement("button");
+        blockButton.type = "button";
+        blockButton.className = "repetition-block-button";
+        blockButton.setAttribute("aria-label", getRepetitionBlockLabel(song, block));
+        blockTokens.forEach((token) => {
+          const word = document.createElement("span");
+          word.textContent = token;
+          blockButton.appendChild(word);
+        });
+        line.appendChild(blockButton);
+      };
+
       const renderRepetitionsLyrics = (song) => {
-        repetitionsLyrics.textContent = song.lyrics;
+        activeRepetitionsSongId = song.id;
+        repetitionsLyrics.innerHTML = "";
+
+        const lines = tokenizeLyrics(song.lyrics);
+        lines.forEach((tokens, lineIndex) => {
+          const line = document.createElement("p");
+          line.className = "lyrics-editor-line repetitions-line";
+          let currentBlock = null;
+          let currentBlockTokens = [];
+
+          tokens.forEach((token, tokenIndex) => {
+            const block = getTokenRepetitionBlock(song, lineIndex, tokenIndex);
+            if (!block) {
+              if (currentBlock) {
+                appendRepetitionBlockButton(song, currentBlock, currentBlockTokens, line);
+                currentBlock = null;
+                currentBlockTokens = [];
+              }
+              line.appendChild(createRepetitionWordButton(token, lineIndex, tokenIndex));
+              return;
+            }
+
+            if (currentBlock && currentBlock !== block) {
+              appendRepetitionBlockButton(song, currentBlock, currentBlockTokens, line);
+              currentBlockTokens = [];
+            }
+            currentBlock = block;
+            currentBlockTokens.push(token);
+          });
+
+          if (currentBlock) {
+            appendRepetitionBlockButton(song, currentBlock, currentBlockTokens, line);
+          }
+          repetitionsLyrics.appendChild(line);
+        });
+      };
+
+      const handleRepetitionTokenClick = async (lineIndex, tokenIndex) => {
+        const song = songsById.get(activeRepetitionsSongId);
+        if (!song) return;
+
+        if (!repetitionSelectionStart) {
+          repetitionSelectionStart = { line: lineIndex, token: tokenIndex };
+          renderRepetitionsLyrics(song);
+          const startButton = repetitionsLyrics.querySelector(`[data-token-key="${lineIndex}-${tokenIndex}"]`);
+          if (startButton) startButton.classList.add("active");
+          return;
+        }
+
+        const normalizedRange = normalizeTokenRange(repetitionSelectionStart, { line: lineIndex, token: tokenIndex });
+        const nextBlocks = [...(song.repetitionBlocks || []), normalizedRange];
+        repetitionSelectionStart = null;
+
+        try {
+          await updateDoc(doc(db, "songs", song.id), { repetitionBlocks: nextBlocks });
+          await loadSongs();
+          const updatedSong = songsById.get(song.id);
+          if (updatedSong) renderRepetitionsLyrics(updatedSong);
+        } catch (error) {
+          console.error("Error guardando bloque de repetición:", error);
+          alert("No se pudo guardar el bloque de repetición.");
+          renderRepetitionsLyrics(song);
+        }
       };
 
       const openSongDetail = (songId, mode = "view") => {
@@ -693,6 +793,7 @@
           setActiveScreen("secciones");
         } else if (action === "repetitions") {
           repetitionsSongLabel.textContent = `${song.title} (${song.artist})`;
+          repetitionSelectionStart = null;
           renderRepetitionsLyrics(song);
           setActiveScreen("repeticiones");
         } else if (action === "edit") {
@@ -772,6 +873,7 @@
             singer: artist
           },
           sections: [],
+          repetitionBlocks: [],
           createdAt: serverTimestamp()
         });
         await loadSongs();

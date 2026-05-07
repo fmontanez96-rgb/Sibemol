@@ -511,20 +511,24 @@
       };
 
       const moveChordBetweenTokens = (song, sourceTokenKey, targetTokenKey, chord) => {
-        if (!song || !sourceTokenKey || !targetTokenKey || !chord || sourceTokenKey === targetTokenKey) return;
+        if (!song || !sourceTokenKey || !targetTokenKey || sourceTokenKey === targetTokenKey) return;
         if (!song.wordChords) song.wordChords = {};
 
         const sourceCanonicalTokenKey = getCanonicalRepetitionTokenKey(song, sourceTokenKey);
         const targetCanonicalTokenKey = getCanonicalRepetitionTokenKey(song, targetTokenKey);
-        if (sourceCanonicalTokenKey === targetCanonicalTokenKey) return;
+        const movingChord = chord || song.wordChords[sourceCanonicalTokenKey] || song.wordChords[sourceTokenKey];
+        if (!movingChord || sourceCanonicalTokenKey === targetCanonicalTokenKey) return;
 
         delete song.wordChords[sourceCanonicalTokenKey];
         delete song.wordChords[sourceTokenKey];
-        song.wordChords[targetCanonicalTokenKey] = chord;
+        song.wordChords[targetCanonicalTokenKey] = movingChord;
         song.wordChords = syncRepeatedBlockChords(song, song.repetitionBlocks || [], song.wordChords);
-        selectedTokenKey = null;
+        song.wordChords[targetCanonicalTokenKey] = movingChord;
+        selectedTokenKey = targetTokenKey;
+        selectedTokenElement = null;
         chordEditorPanel.classList.add("hidden");
         renderSongLyricsEditor(song);
+        renderChordRoadmap(song);
       };
 
       const renderSongLyricsEditor = (song) => {

@@ -159,15 +159,15 @@
     <section id="song-play-modal" class="song-play-modal hidden" role="dialog" aria-modal="true" aria-labelledby="song-play-title">
       <article id="song-play-panel" class="song-play-panel" tabindex="0">
         <div class="song-play-header">
-          <div>
+          <div class="song-play-heading">
             <p id="song-play-artist" class="song-play-artist"></p>
             <h2 id="song-play-title"></h2>
           </div>
           <button id="close-song-play" class="song-play-close" type="button" aria-label="Cerrar reproducción">Cerrar</button>
         </div>
         <div class="song-play-meta">
-          <span id="song-play-section-label"></span>
-          <span id="song-play-counter"></span>
+          <span id="song-play-section-label" class="song-play-section-label" aria-hidden="true"></span>
+          <span id="song-play-counter" class="song-play-counter-badge"></span>
         </div>
         <div id="song-play-section" class="song-play-section" aria-live="polite"></div>
         <p id="song-play-help" class="song-play-help">Click, barra espaciadora o toque la pantalla para avanzar a la siguiente sección.</p>
@@ -1101,7 +1101,7 @@
 
         songPlaySection.innerHTML = "";
         const label = section.label || formatSectionName(section.type);
-        songPlaySectionLabel.textContent = label;
+        songPlaySectionLabel.textContent = "";
         songPlayCounter.textContent = `${playbackSectionIndex + 1} / ${playbackSections.length}`;
         songPlayHelp.textContent = playbackSectionIndex === playbackSections.length - 1
           ? "Última sección: presiona click, barra espaciadora o toca la pantalla para cerrar."
@@ -1193,7 +1193,7 @@
         songPlayArtist.textContent = song.artist;
 
         if (!playbackSections.length) {
-          songPlaySectionLabel.textContent = "Sin secciones";
+          songPlaySectionLabel.textContent = "";
           songPlayCounter.textContent = "0 / 0";
           songPlaySection.innerHTML = "";
           applyPlaybackTypography([]);

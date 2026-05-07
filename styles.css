@@ -456,6 +456,34 @@ body {
   background: transparent;
 }
 
+.token-chord-draggable {
+  align-items: center;
+  background: #eef3ff;
+  border: 1px solid #b9c8ff;
+  border-radius: 999px;
+  box-shadow: 0 2px 6px rgba(23, 60, 173, 0.18);
+  cursor: grab;
+  display: inline-flex;
+  justify-content: center;
+  min-height: 22px;
+  min-width: 30px;
+  padding: 4px 8px;
+  user-select: none;
+}
+
+.token-chord-draggable:active {
+  cursor: grabbing;
+}
+
+.lyrics-token.drag-source {
+  opacity: 0.55;
+}
+
+.lyrics-token.drag-over {
+  outline: 2px dashed #173cad;
+  outline-offset: 5px;
+}
+
 .detail-help {
   color: #666;
   font-size: 0.95rem;

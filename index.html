@@ -123,7 +123,7 @@
         <div class="song-detail-content">
           <div class="song-detail-main">
             <div id="song-detail-chord-workspace" class="song-detail-chord-workspace hidden">
-              <p class="detail-help">Haz click en una palabra para elegir su acorde y luego guarda.</p>
+              <p class="detail-help">Haz click en una palabra para elegir su acorde o arrastra una ficha de acorde hacia otra palabra.</p>
               <div id="chord-editor-panel" class="chord-editor-panel hidden">
                 <div class="chord-editor-row">
                   <label for="chord-root-select">Acorde</label>
@@ -361,6 +361,7 @@
       let repetitionBlockPendingRepeatSourceIndex = null;
       let selectedPerformer = null;
       let bulkChordSequence = [];
+      let draggedChord = null;
 
       const naturalRoots = ["Do", "Re", "Mi", "Fa", "Sol", "La", "Si"];
       const accidentalOptions = [
@@ -509,6 +510,23 @@
         chordEditorPanel.style.top = `${top}px`;
       };
 
+      const moveChordBetweenTokens = (song, sourceTokenKey, targetTokenKey, chord) => {
+        if (!song || !sourceTokenKey || !targetTokenKey || !chord || sourceTokenKey === targetTokenKey) return;
+        if (!song.wordChords) song.wordChords = {};
+
+        const sourceCanonicalTokenKey = getCanonicalRepetitionTokenKey(song, sourceTokenKey);
+        const targetCanonicalTokenKey = getCanonicalRepetitionTokenKey(song, targetTokenKey);
+        if (sourceCanonicalTokenKey === targetCanonicalTokenKey) return;
+
+        delete song.wordChords[sourceCanonicalTokenKey];
+        delete song.wordChords[sourceTokenKey];
+        song.wordChords[targetCanonicalTokenKey] = chord;
+        song.wordChords = syncRepeatedBlockChords(song, song.repetitionBlocks || [], song.wordChords);
+        selectedTokenKey = null;
+        chordEditorPanel.classList.add("hidden");
+        renderSongLyricsEditor(song);
+      };
+
       const renderSongLyricsEditor = (song) => {
         songDetailLyricsEditor.innerHTML = "";
         selectedTokenElement = null;
@@ -521,16 +539,56 @@
             const wordWrapper = document.createElement("button");
             wordWrapper.type = "button";
             wordWrapper.className = "lyrics-token";
+            wordWrapper.dataset.tokenKey = tokenKey;
             if (tokenKey === selectedTokenKey) wordWrapper.classList.add("active");
             if (tokenKey === selectedTokenKey) selectedTokenElement = wordWrapper;
+
             const assignedChord = getEffectiveWordChord(song, lineIndex, tokenIndex);
-            wordWrapper.innerHTML = `<span class="token-chord">${assignedChord}</span><span>${token}</span>`;
+            const chordChip = document.createElement("span");
+            chordChip.className = "token-chord";
+            chordChip.textContent = assignedChord;
+            if (assignedChord) {
+              chordChip.classList.add("token-chord-draggable");
+              chordChip.draggable = true;
+              chordChip.title = "Arrastra este acorde hacia otra palabra";
+              chordChip.addEventListener("dragstart", (event) => {
+                draggedChord = { chord: assignedChord, sourceTokenKey: tokenKey };
+                wordWrapper.classList.add("drag-source");
+                event.dataTransfer.effectAllowed = "move";
+                event.dataTransfer.setData("text/plain", assignedChord);
+              });
+              chordChip.addEventListener("dragend", () => {
+                draggedChord = null;
+                wordWrapper.classList.remove("drag-source");
+                document.querySelectorAll(".lyrics-token.drag-over").forEach((tokenElement) => tokenElement.classList.remove("drag-over"));
+              });
+            }
+
+            const wordText = document.createElement("span");
+            wordText.textContent = token;
+            wordWrapper.append(chordChip, wordText);
             wordWrapper.addEventListener("click", () => {
               selectedTokenKey = tokenKey;
               selectedTokenElement = wordWrapper;
               chordEditorPanel.classList.remove("hidden");
               positionChordEditorNearToken();
               renderSongLyricsEditor(song);
+            });
+            wordWrapper.addEventListener("dragover", (event) => {
+              if (!draggedChord || draggedChord.sourceTokenKey === tokenKey) return;
+              event.preventDefault();
+              event.dataTransfer.dropEffect = "move";
+              wordWrapper.classList.add("drag-over");
+            });
+            wordWrapper.addEventListener("dragleave", () => {
+              wordWrapper.classList.remove("drag-over");
+            });
+            wordWrapper.addEventListener("drop", (event) => {
+              if (!draggedChord) return;
+              event.preventDefault();
+              wordWrapper.classList.remove("drag-over");
+              moveChordBetweenTokens(song, draggedChord.sourceTokenKey, tokenKey, draggedChord.chord);
+              draggedChord = null;
             });
             line.appendChild(wordWrapper);
           });

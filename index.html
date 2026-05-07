@@ -793,6 +793,7 @@
       let activeSectionsSongId = null;
       let sectionSelectionStart = null;
       let sectionSelectionEnd = null;
+      let sectionSelectionEndElement = null;
       let activeRepetitionsSongId = null;
       let repetitionSelectionStart = null;
       let activeRepetitionBlockIndex = null;
@@ -1803,13 +1804,51 @@
         songPlayPanel.focus();
       };
 
+      const positionSectionsTypePicker = (anchorElement) => {
+        if (!anchorElement) return;
+        const margin = 16;
+        const gap = 10;
+        const anchorRect = anchorElement.getBoundingClientRect();
+        const pickerRect = sectionsTypePicker.getBoundingClientRect();
+        let left = anchorRect.right + gap;
+        let top = anchorRect.top;
+
+        if (left + pickerRect.width > window.innerWidth - margin) {
+          left = anchorRect.left - pickerRect.width - gap;
+        }
+        if (left < margin) {
+          left = Math.min(
+            anchorRect.left,
+            window.innerWidth - pickerRect.width - margin,
+          );
+        }
+        if (top + pickerRect.height > window.innerHeight - margin) {
+          top = window.innerHeight - pickerRect.height - margin;
+        }
+        if (top < margin) top = margin;
+
+        sectionsTypePicker.style.left = `${Math.max(margin, left)}px`;
+        sectionsTypePicker.style.top = `${top}px`;
+      };
+
+      const showSectionsTypePicker = (anchorElement) => {
+        sectionSelectionEndElement = anchorElement;
+        sectionsTypePicker.classList.remove("hidden");
+        positionSectionsTypePicker(anchorElement);
+      };
+
+      const hideSectionsTypePicker = () => {
+        sectionSelectionEndElement = null;
+        sectionsTypePicker.classList.add("hidden");
+      };
+
       const renderSectionsEditor = (songId) => {
         const song = songsById.get(songId);
         if (!song) return;
         activeSectionsSongId = songId;
         sectionSelectionStart = null;
         sectionSelectionEnd = null;
-        sectionsTypePicker.classList.add("hidden");
+        hideSectionsTypePicker();
         sectionsEditor.innerHTML = "";
         const lines = tokenizeLyrics(song.lyrics);
         lines.forEach((tokens, lineIndex) => {
@@ -1840,7 +1879,8 @@
               );
               sectionSelectionStart = normalizedRange.start;
               sectionSelectionEnd = normalizedRange.end;
-              sectionsTypePicker.classList.remove("hidden");
+              button.classList.add("active");
+              showSectionsTypePicker(button);
             });
             line.appendChild(button);
           });
@@ -1864,7 +1904,7 @@
           .sort(compareSectionRanges);
         sectionSelectionStart = null;
         sectionSelectionEnd = null;
-        sectionsTypePicker.classList.add("hidden");
+        hideSectionsTypePicker();
         await updateDoc(doc(db, "songs", song.id), { sections: nextSections });
         await loadSongs();
         renderSectionsEditor(song.id);
@@ -3307,6 +3347,20 @@
         )
           closeRepetitionBlockMenu();
       });
+      window.addEventListener("resize", () => {
+        if (!sectionsTypePicker.classList.contains("hidden")) {
+          positionSectionsTypePicker(sectionSelectionEndElement);
+        }
+      });
+      window.addEventListener(
+        "scroll",
+        () => {
+          if (!sectionsTypePicker.classList.contains("hidden")) {
+            positionSectionsTypePicker(sectionSelectionEndElement);
+          }
+        },
+        true,
+      );
       songDetailChordWorkspace.addEventListener("click", (event) => {
         if (
           !event.target.closest(".lyrics-token") &&

@@ -18,7 +18,8 @@
           <button class="piano-key" data-screen="cancionero">Cancionero</button>
           <button class="piano-key" data-screen="remix">Remix</button>
           <button class="piano-key" data-screen="acordes">Acordes</button>
-          <button class="piano-key" data-screen="nueva-cancion">NUEVA CANCIÓN</button>
+          <button class="piano-key" data-screen="nueva-cancion">Nueva Canción</button>
+          <button class="piano-key" data-screen="bandas-cantantes">Bandas/Cantantes</button>
         </nav>
       </aside>
 
@@ -34,6 +35,27 @@
           <p class="empty-text"></p>
         </section>
 
+        <section id="screen-secciones" class="screen-panel hidden">
+          <h3>Secciones</h3>
+          <p id="sections-song-label" class="empty-text">Selecciona una canción desde el menú contextual.</p>
+          <p class="detail-help">Haz click en la palabra inicial y luego en la final para elegir el tipo de sección.</p>
+          <div id="sections-editor" class="sections-editor"></div>
+          <div id="sections-type-picker" class="sections-type-picker hidden">
+            <p>Selecciona el tipo de sección</p>
+            <div class="sections-type-actions">
+              <button type="button" data-type="introduccion">Introducción</button>
+              <button type="button" data-type="estrofa">Estrofa</button>
+              <button type="button" data-type="estribillo">Estribillo</button>
+              <button type="button" data-type="puente">Puente</button>
+            </div>
+          </div>
+        </section>
+
+        <section id="screen-repeticiones" class="screen-panel hidden">
+          <h3>Repeticiones</h3>
+          <p id="repetitions-song-label" class="empty-text">Selecciona una canción desde el menú contextual.</p>
+        </section>
+
         <section id="screen-acordes" class="screen-panel hidden">
           <section id="chords-section">
             <h3>Acordes</h3>
@@ -41,6 +63,13 @@
           </section>
         </section>
 
+
+        <section id="screen-bandas-cantantes" class="screen-panel hidden">
+          <h3>Bandas/Cantantes</h3>
+          <button id="bandas-back-button" type="button" class="close-song-detail hidden">Volver a bandas/cantantes</button>
+          <p id="bandas-cantantes-empty" class="empty-text"></p>
+          <div id="bandas-cantantes-cards" class="songbook-cards"></div>
+        </section>
         <section id="screen-nueva-cancion" class="screen-panel">
           <section class="new-song-section">
             <h3>Nueva canción</h3>
@@ -79,7 +108,6 @@
         <div id="song-detail-chord-workspace" class="song-detail-chord-workspace hidden">
           <p class="detail-help">Haz click en una palabra para elegir su acorde y luego guarda.</p>
           <div id="chord-editor-panel" class="chord-editor-panel hidden">
-            <button id="close-chord-editor" class="close-chord-editor" type="button" aria-label="Cerrar editor de acordes">✕</button>
             <div class="chord-editor-row">
               <label for="chord-root-select">Acorde</label>
               <select id="chord-root-select"></select>
@@ -96,9 +124,24 @@
           </div>
           <div id="song-detail-lyrics-editor" class="lyrics-editor"></div>
         </div>
-        <div class="song-detail-content">
-          <div id="song-detail-lyrics" class="song-detail-lyrics"></div>
-          <aside id="song-detail-chords-only" class="song-detail-chords-only hidden" aria-label="Secuencia de acordes"></aside>
+        <pre id="song-detail-lyrics" class="song-detail-lyrics"></pre>
+      </article>
+    </section>
+
+    <div id="song-context-menu" class="song-context-menu hidden" role="menu" aria-label="Opciones de canción">
+      <button type="button" data-action="sections">Secciones</button>
+      <button type="button" data-action="repetitions">Repeticiones</button>
+      <button type="button" data-action="edit">Editar</button>
+      <button type="button" data-action="delete">Eliminar</button>
+    </div>
+
+    <section id="delete-song-modal" class="confirm-modal hidden" role="dialog" aria-modal="true" aria-labelledby="delete-song-title">
+      <article class="confirm-panel">
+        <h3 id="delete-song-title">¿Seguro que deseas eliminar esta canción?</h3>
+        <p id="delete-song-text"></p>
+        <div class="confirm-actions">
+          <button id="confirm-delete-song" type="button" class="submit-song">Eliminar</button>
+          <button id="cancel-delete-song" type="button" class="close-song-detail">Cancelar</button>
         </div>
       </article>
     </section>
@@ -144,7 +187,6 @@
       const songDetailTitle = document.getElementById("song-detail-title");
       const songDetailArtist = document.getElementById("song-detail-artist");
       const songDetailLyrics = document.getElementById("song-detail-lyrics");
-      const songDetailChordsOnly = document.getElementById("song-detail-chords-only");
       const songDetailChordWorkspace = document.getElementById("song-detail-chord-workspace");
       const songDetailLyricsEditor = document.getElementById("song-detail-lyrics-editor");
       const chordEditorPanel = document.getElementById("chord-editor-panel");
@@ -153,25 +195,30 @@
       const chordAccidentalSelect = document.getElementById("chord-accidental-select");
       const saveTokenChordButton = document.getElementById("save-token-chord");
       const saveSongChordsButton = document.getElementById("save-song-chords");
-      const closeChordEditorButton = document.getElementById("close-chord-editor");
-      let contextMenuElement = null;
-      let contextMenuSongId = null;
-
-      const selectionState = {
-        mode: null,
-        songId: null,
-        firstRangeStart: null,
-        firstRangeEnd: null,
-        secondRangeStart: null,
-        secondRangeEnd: null,
-        sectionStart: null,
-        sectionEnd: null
-      };
+      const contextMenu = document.getElementById("song-context-menu");
+      const deleteSongModal = document.getElementById("delete-song-modal");
+      const deleteSongText = document.getElementById("delete-song-text");
+      const confirmDeleteSongButton = document.getElementById("confirm-delete-song");
+      const cancelDeleteSongButton = document.getElementById("cancel-delete-song");
+      const sectionsSongLabel = document.getElementById("sections-song-label");
+      const repetitionsSongLabel = document.getElementById("repetitions-song-label");
+      const sectionsEditor = document.getElementById("sections-editor");
+      const sectionsTypePicker = document.getElementById("sections-type-picker");
+      const bandasBackButton = document.getElementById("bandas-back-button");
+      const bandasCantantesEmpty = document.getElementById("bandas-cantantes-empty");
+      const bandasCantantesCards = document.getElementById("bandas-cantantes-cards");
 
       const appState = { activeScreen: "nueva-cancion", songs: [] };
       const songsById = new Map();
       let selectedTokenKey = null;
       let selectedTokenElement = null;
+      let contextSongId = null;
+      let songPendingDeleteId = null;
+      let editingSongId = null;
+      let activeSectionsSongId = null;
+      let sectionSelectionStart = null;
+      let sectionSelectionEnd = null;
+      let selectedPerformer = null;
 
       const naturalRoots = ["Do", "Re", "Mi", "Fa", "Sol", "La", "Si"];
       const accidentalOptions = [
@@ -268,99 +315,109 @@
         if (selectedTokenElement) positionChordEditorNearToken();
       };
 
+      const sectionColors = {
+        introduccion: "#bdf5c0",
+        estrofa: "#c8deff",
+        estribillo: "#ffc9c9",
+        puente: "#fff2a8"
+      };
 
-      const renderSongLyricsWithChords = (song) => {
-        songDetailLyrics.innerHTML = "";
+      const sectionTokenIndex = (lineIndex, tokenIndex) => (lineIndex * 10000) + tokenIndex;
+      const isTokenInSectionRange = (lineIndex, tokenIndex, sectionRange) => {
+        const currentIndex = sectionTokenIndex(lineIndex, tokenIndex);
+        const startIndex = sectionTokenIndex(sectionRange.start.line, sectionRange.start.token);
+        const endIndex = sectionTokenIndex(sectionRange.end.line, sectionRange.end.token);
+        return currentIndex >= startIndex && currentIndex <= endIndex;
+      };
+      const getTokenSectionType = (song, lineIndex, tokenIndex) => {
+        const sections = song.sections || [];
+        const found = sections.find((range) => isTokenInSectionRange(lineIndex, tokenIndex, range));
+        return found?.type || "";
+      };
+
+      const renderLyricsWithSections = (song) => {
+        const lines = tokenizeLyrics(song.lyrics);
+        const groups = [];
+
+        lines.forEach((tokens, lineIndex) => {
+          tokens.forEach((token, tokenIndex) => {
+            const type = getTokenSectionType(song, lineIndex, tokenIndex);
+            const lastGroup = groups[groups.length - 1];
+            if (!lastGroup || lastGroup.type !== type) {
+              groups.push({ type, lines: [[]] });
+            }
+            const activeGroup = groups[groups.length - 1];
+            const currentLine = activeGroup.lines[activeGroup.lines.length - 1];
+            currentLine.push(token);
+          });
+
+          const nextLineHasTokens = lineIndex < lines.length - 1 && lines[lineIndex + 1].length > 0;
+          if (!nextLineHasTokens) return;
+          const lastGroup = groups[groups.length - 1];
+          if (lastGroup) {
+            lastGroup.lines.push([]);
+          }
+        });
+
+        return groups.map((group) => {
+          const className = group.type ? `lyrics-section-card section-${group.type}` : "lyrics-section-card";
+          const linesHtml = group.lines
+            .filter((line) => line.length)
+            .map((line) => `<p>${line.join(" ")}</p>`)
+            .join("");
+          return `<article class="${className}">${linesHtml}</article>`;
+        }).join("");
+      };
+
+      const renderSectionsEditor = (songId) => {
+        const song = songsById.get(songId);
+        if (!song) return;
+        activeSectionsSongId = songId;
+        sectionSelectionStart = null;
+        sectionSelectionEnd = null;
+        sectionsTypePicker.classList.add("hidden");
+        sectionsEditor.innerHTML = "";
         const lines = tokenizeLyrics(song.lyrics);
         lines.forEach((tokens, lineIndex) => {
           const line = document.createElement("p");
-          line.className = "song-lyrics-line";
+          line.className = "lyrics-editor-line";
           tokens.forEach((token, tokenIndex) => {
-            const tokenKey = `${lineIndex}-${tokenIndex}`;
-            const wrapper = document.createElement("span");
-            wrapper.className = "song-lyrics-token";
-            const chord = song.wordChords?.[tokenKey] || "";
-            wrapper.innerHTML = `<span class="token-chord">${chord}</span><span>${token}</span>`;
-            line.appendChild(wrapper);
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "lyrics-token section-token";
+            button.textContent = token;
+            const sectionType = getTokenSectionType(song, lineIndex, tokenIndex);
+            button.style.backgroundColor = sectionColors[sectionType] || "#ffffff";
+            button.addEventListener("click", () => {
+              if (!sectionSelectionStart) {
+                sectionSelectionStart = { line: lineIndex, token: tokenIndex };
+                button.classList.add("active");
+                return;
+              }
+              sectionSelectionEnd = { line: lineIndex, token: tokenIndex };
+              if (sectionTokenIndex(sectionSelectionEnd.line, sectionSelectionEnd.token) < sectionTokenIndex(sectionSelectionStart.line, sectionSelectionStart.token)) {
+                const prevStart = sectionSelectionStart;
+                sectionSelectionStart = sectionSelectionEnd;
+                sectionSelectionEnd = prevStart;
+              }
+              sectionsTypePicker.classList.remove("hidden");
+            });
+            line.appendChild(button);
           });
-          songDetailLyrics.appendChild(line);
+          sectionsEditor.appendChild(line);
         });
       };
 
-
-      const getOrderedRange = (start, end) => {
-        if (!start || !end) return null;
-        const startsAfter = start.lineIndex > end.lineIndex
-          || (start.lineIndex === end.lineIndex && start.tokenIndex > end.tokenIndex);
-        return startsAfter ? { start: end, end: start } : { start, end };
-      };
-
-      const chordsFromRange = (song, start, end) => {
-        const ordered = getOrderedRange(start, end);
-        if (!ordered) return [];
-        const result = [];
-        for (let line = ordered.start.lineIndex; line <= ordered.end.lineIndex; line += 1) {
-          const lineTokens = tokenizeLyrics(song.lyrics)[line] || [];
-          const startToken = line === ordered.start.lineIndex ? ordered.start.tokenIndex : 0;
-          const endToken = line === ordered.end.lineIndex
-            ? ordered.end.tokenIndex
-            : lineTokens.length - 1;
-          for (let token = startToken; token <= endToken; token += 1) {
-            const chord = song.wordChords?.[`${line}-${token}`] || "";
-            if (chord) result.push(chord);
-          }
-        }
-        return result;
-      };
-
-      const formatSectionLabel = (type) => {
-        const map = { estrofa: 'Estrofa', estribillo: 'Estribillo', puente: 'Puente' };
-        return map[type] || 'Sección';
-      };
-
-      const renderSongChordsOnly = (song) => {
-        songDetailChordsOnly.innerHTML = "";
-        const sections = [...(song.sections || [])]
-          .map((section) => ({ ...section, ordered: getOrderedRange(section.start, section.end) }))
-          .filter((section) => section.ordered)
-          .sort((a, b) => {
-            if (a.ordered.start.lineIndex !== b.ordered.start.lineIndex) {
-              return a.ordered.start.lineIndex - b.ordered.start.lineIndex;
-            }
-            return a.ordered.start.tokenIndex - b.ordered.start.tokenIndex;
-          });
-
-        if (sections.length) {
-          const rawSummary = sections
-            .map((section) => {
-              const chords = chordsFromRange(song, section.start, section.end);
-              if (!chords.length) return null;
-              return { label: formatSectionLabel(section.type), chordsText: chords.join('   ') };
-            })
-            .filter(Boolean);
-
-          const compactSummary = [];
-          rawSummary.forEach((entry) => {
-            const previous = compactSummary[compactSummary.length - 1];
-            if (previous && previous.label === entry.label && previous.chordsText === entry.chordsText) {
-              previous.count += 1;
-            } else {
-              compactSummary.push({ ...entry, count: 1 });
-            }
-          });
-
-          compactSummary.forEach((entry) => {
-            const chordLine = document.createElement('p');
-            chordLine.className = 'chords-only-line';
-            const countSuffix = entry.count > 1 ? ` x${entry.count}` : '';
-            chordLine.textContent = `${entry.label}${countSuffix}: ${entry.chordsText}`;
-            songDetailChordsOnly.appendChild(chordLine);
-          });
-        }
-
-        if (!songDetailChordsOnly.children.length) {
-          songDetailChordsOnly.innerHTML = '<p class="empty-chords-only">Define secciones y acordes para ver el resumen.</p>';
-        }
+      const applySectionType = async (type) => {
+        const song = songsById.get(activeSectionsSongId);
+        if (!song || !sectionSelectionStart || !sectionSelectionEnd) return;
+        const nextSections = [...(song.sections || []), { start: sectionSelectionStart, end: sectionSelectionEnd, type }];
+        sectionSelectionStart = null;
+        sectionSelectionEnd = null;
+        sectionsTypePicker.classList.add("hidden");
+        await updateDoc(doc(db, "songs", song.id), { sections: nextSections });
+        await loadSongs();
+        renderSectionsEditor(song.id);
       };
 
       const openSongDetail = (songId, mode = "view") => {
@@ -374,253 +431,180 @@
         songDetailChordWorkspace.classList.toggle("hidden", !isChordMode);
         songDetailLyrics.classList.toggle("hidden", isChordMode);
         saveSongChordsButton.classList.toggle("hidden", !isChordMode);
-        songDetailChordsOnly.classList.toggle("hidden", isChordMode);
 
         if (isChordMode) {
           selectedTokenKey = null;
           renderChordPalette();
           renderSongLyricsEditor(song);
         } else {
-          renderSongLyricsWithChords(song);
-          renderSongChordsOnly(song);
+          songDetailLyrics.innerHTML = renderLyricsWithSections(song);
         }
         songDetailModal.classList.remove("hidden");
-      };
-
-      const closeTokenEditor = () => {
-        selectedTokenKey = null;
-        selectedTokenElement = null;
-        chordEditorPanel.classList.add("hidden");
       };
 
       const closeSongDetail = () => {
         songDetailModal.classList.add("hidden");
-        closeTokenEditor();
-      };
-
-      const closeContextMenu = () => {
-        if (contextMenuElement) contextMenuElement.remove();
-        contextMenuElement = null;
-        contextMenuSongId = null;
-      };
-
-      const closeSelectionMode = () => {
-        selectionState.mode = null;
-        selectionState.songId = null;
-        selectionState.firstRangeStart = null;
-        selectionState.firstRangeEnd = null;
-        selectionState.secondRangeStart = null;
-        selectionState.secondRangeEnd = null;
-        selectionState.sectionStart = null;
-        selectionState.sectionEnd = null;
-        closeSongDetail();
-      };
-
-      const renderInteractiveLyrics = (song) => {
-        songDetailLyrics.innerHTML = "";
-        const lines = tokenizeLyrics(song.lyrics);
-        lines.forEach((tokens, lineIndex) => {
-          const line = document.createElement("p");
-          line.className = "song-lyrics-line";
-          tokens.forEach((token, tokenIndex) => {
-            const wrapper = document.createElement("button");
-            wrapper.type = "button";
-            wrapper.className = "song-lyrics-token clickable-token";
-            wrapper.dataset.lineIndex = String(lineIndex);
-            wrapper.dataset.tokenIndex = String(tokenIndex);
-            wrapper.innerHTML = `<span>${token}</span>`;
-            wrapper.addEventListener("click", () => handleTokenSelection(song, lineIndex, tokenIndex, token));
-            line.appendChild(wrapper);
-          });
-          songDetailLyrics.appendChild(line);
-        });
-      };
-
-      const openSongInSelectionMode = (songId, mode) => {
-        const song = songsById.get(songId);
-        if (!song) return;
-        selectionState.mode = mode;
-        selectionState.songId = songId;
-        songDetailTitle.textContent = mode === "repeat" ? `Repeticiones · ${song.title}` : `Secciones · ${song.title}`;
-        songDetailArtist.textContent = song.artist;
-        songDetailChordWorkspace.classList.add("hidden");
-        saveSongChordsButton.classList.add("hidden");
-        songDetailChordsOnly.classList.add("hidden");
-        songDetailLyrics.classList.remove("hidden");
-        renderInteractiveLyrics(song);
-        songDetailModal.classList.remove("hidden");
-      };
-
-      const getRangeTokenKeys = (song, start, end) => {
-        const ordered = getOrderedRange(start, end);
-        if (!ordered) return [];
-        const lines = tokenizeLyrics(song.lyrics);
-        const result = [];
-
-        for (let line = ordered.start.lineIndex; line <= ordered.end.lineIndex; line += 1) {
-          const lineTokens = lines[line] || [];
-          if (!lineTokens.length) continue;
-
-          const startToken = line === ordered.start.lineIndex ? ordered.start.tokenIndex : 0;
-          const maxTokenIndex = lineTokens.length - 1;
-          const requestedEndToken = line === ordered.end.lineIndex ? ordered.end.tokenIndex : maxTokenIndex;
-          const endToken = Math.min(requestedEndToken, maxTokenIndex);
-
-          for (let token = startToken; token <= endToken; token += 1) {
-            result.push(`${line}-${token}`);
-          }
-        }
-        return result;
-      };
-
-      const handleTokenSelection = async (song, lineIndex, tokenIndex, tokenText) => {
-        const picked = { lineIndex, tokenIndex, tokenText };
-        if (selectionState.mode === "repeat") {
-          if (!selectionState.firstRangeStart) {
-            selectionState.firstRangeStart = picked;
-            alert(`Bloque 1: palabra inicial "${tokenText}" seleccionada.`);
-            return;
-          }
-          if (!selectionState.firstRangeEnd) {
-            selectionState.firstRangeEnd = picked;
-            alert(`Bloque 1: palabra final "${tokenText}" seleccionada. Ahora elige bloque 2.`);
-            return;
-          }
-          if (!selectionState.secondRangeStart) {
-            selectionState.secondRangeStart = picked;
-            alert(`Bloque 2: palabra inicial "${tokenText}" seleccionada.`);
-            return;
-          }
-          if (!selectionState.secondRangeEnd) {
-            selectionState.secondRangeEnd = picked;
-            const firstTokenKeys = getRangeTokenKeys(song, selectionState.firstRangeStart, selectionState.firstRangeEnd);
-            const secondTokenKeys = getRangeTokenKeys(song, selectionState.secondRangeStart, selectionState.secondRangeEnd);
-            const firstChords = firstTokenKeys.map((key) => song.wordChords?.[key] || "").filter(Boolean);
-            const secondChords = secondTokenKeys.map((key) => song.wordChords?.[key] || "").filter(Boolean);
-            const repetitionData = {
-              firstBlock: { start: selectionState.firstRangeStart, end: selectionState.firstRangeEnd, chords: firstChords },
-              secondBlock: {
-                start: selectionState.secondRangeStart,
-                end: selectionState.secondRangeEnd,
-                chords: firstChords,
-                detectedChords: secondChords,
-                sameAsFirstBlock: true
-              },
-              savedAt: new Date().toISOString()
-            };
-            await updateDoc(doc(db, "songs", song.id), { repetitions: [...(song.repetitions || []), repetitionData] });
-            await loadSongs();
-            alert("Repetición guardada correctamente.");
-            closeSelectionMode();
-          }
-        } else if (selectionState.mode === "section") {
-          if (!selectionState.sectionStart) {
-            selectionState.sectionStart = picked;
-            alert(`Sección: palabra inicial "${tokenText}" seleccionada.`);
-            return;
-          }
-          selectionState.sectionEnd = picked;
-          const sectionType = window.prompt('Tipo de sección: escribe "estrofa", "estribillo" o "puente"', "estrofa");
-          if (!sectionType) return;
-          const normalized = sectionType.trim().toLowerCase();
-          if (!["estrofa", "estribillo", "puente"].includes(normalized)) {
-            alert("Tipo inválido. Debe ser estrofa, estribillo o puente.");
-            return;
-          }
-          const sectionData = {
-            type: normalized,
-            start: selectionState.sectionStart,
-            end: selectionState.sectionEnd,
-            savedAt: new Date().toISOString()
-          };
-          await updateDoc(doc(db, "songs", song.id), { sections: [...(song.sections || []), sectionData] });
-          await loadSongs();
-          alert("Sección guardada correctamente.");
-          closeSelectionMode();
-        }
-      };
-
-      const showChordContextMenu = (event, songId) => {
-        event.preventDefault();
-        closeContextMenu();
-        contextMenuSongId = songId;
-        const menu = document.createElement("div");
-        menu.className = "song-context-menu";
-        const options = [
-          { label: "Editar", action: "edit" },
-          { label: "Eliminar", action: "delete" },
-          { label: "Repeticiones", action: "repeat" },
-          { label: "Secciones", action: "section" }
-        ];
-        options.forEach((option) => {
-          const button = document.createElement("button");
-          button.type = "button";
-          button.className = "song-context-option";
-          button.textContent = option.label;
-          button.addEventListener("click", () => handleContextAction(option.action));
-          menu.appendChild(button);
-        });
-        menu.style.left = `${event.clientX}px`;
-        menu.style.top = `${event.clientY}px`;
-        document.body.appendChild(menu);
-        contextMenuElement = menu;
-      };
-
-      const handleContextAction = async (action) => {
-        const song = songsById.get(contextMenuSongId);
-        closeContextMenu();
-        if (!song) return;
-        if (action === "edit") {
-          const title = window.prompt("Editar título", song.title)?.trim();
-          const artist = window.prompt("Editar autor", song.artist)?.trim();
-          const lyrics = window.prompt("Editar letra completa", song.lyrics)?.trim();
-          if (!title || !artist || !lyrics) return;
-          await updateDoc(doc(db, "songs", song.id), { title, artist, lyrics });
-          await loadSongs();
-          return;
-        }
-        if (action === "delete") {
-          const confirmed = window.confirm(`¿Seguro que deseas eliminar "${song.title}"?`);
-          if (!confirmed) return;
-          await deleteDoc(doc(db, "songs", song.id));
-          await loadSongs();
-          return;
-        }
-        if (action === "repeat") openSongInSelectionMode(song.id, "repeat");
-        if (action === "section") openSongInSelectionMode(song.id, "section");
+        selectedTokenKey = null;
+        selectedTokenElement = null;
+        chordEditorPanel.classList.add("hidden");
       };
 
       const renderSongs = () => {
         songsById.clear();
         songbookCards.innerHTML = "";
         chordsCards.innerHTML = "";
+        renderBandasCantantesCards();
         appState.songs.forEach((song) => {
           songsById.set(song.id, song);
           const songCard = document.createElement("article");
           songCard.className = "song-card";
           songCard.innerHTML = `<h4>${song.title}</h4><p>${song.artist}</p>`;
           songCard.addEventListener("click", () => openSongDetail(song.id, "view"));
+          songCard.addEventListener("contextmenu", (event) => openSongContextMenu(event, song.id));
           songbookCards.prepend(songCard);
 
           const chordCard = document.createElement("article");
           chordCard.className = "song-card";
           chordCard.innerHTML = `<h4>${song.title}</h4><p>${song.artist}</p><p>Asignar acordes por palabra</p>`;
           chordCard.addEventListener("click", () => openSongDetail(song.id, "chords"));
-          chordCard.addEventListener("contextmenu", (event) => showChordContextMenu(event, song.id));
           chordsCards.prepend(chordCard);
         });
       };
 
+      const renderBandasCantantesCards = () => {
+        bandasCantantesCards.innerHTML = "";
+        const groupedSongs = appState.songs.reduce((acc, song) => {
+          const performerName = song.artist?.trim() || "Sin artista";
+          if (!acc[performerName]) acc[performerName] = [];
+          acc[performerName].push(song);
+          return acc;
+        }, {});
+        const performerNames = Object.keys(groupedSongs).sort((a, b) => a.localeCompare(b, "es"));
+
+        if (selectedPerformer) {
+          const performerSongs = groupedSongs[selectedPerformer] || [];
+          bandasBackButton.classList.remove("hidden");
+          bandasCantantesEmpty.textContent = `Canciones de ${selectedPerformer}`;
+          performerSongs.forEach((song) => {
+            const songCard = document.createElement("article");
+            songCard.className = "song-card";
+            songCard.innerHTML = `<h4>${song.title}</h4><p>${song.artist}</p>`;
+            songCard.addEventListener("click", () => openSongDetail(song.id, "view"));
+            bandasCantantesCards.appendChild(songCard);
+          });
+          if (!performerSongs.length) {
+            bandasCantantesEmpty.textContent = `No hay canciones para ${selectedPerformer}.`;
+          }
+          return;
+        }
+
+        bandasBackButton.classList.add("hidden");
+        bandasCantantesEmpty.textContent = performerNames.length
+          ? "Haz click en una tarjeta para ver sus canciones."
+          : "Aún no hay bandas o cantantes cargados.";
+
+        performerNames.forEach((performerName) => {
+          const performerCard = document.createElement("article");
+          performerCard.className = "song-card";
+          performerCard.innerHTML = `<h4>${performerName}</h4><p>${groupedSongs[performerName].length} canción(es)</p>`;
+          performerCard.addEventListener("click", () => {
+            selectedPerformer = performerName;
+            renderBandasCantantesCards();
+          });
+          bandasCantantesCards.appendChild(performerCard);
+        });
+      };
+
+      const openSongContextMenu = (event, songId) => {
+        event.preventDefault();
+        contextSongId = songId;
+        contextMenu.style.left = `${event.pageX}px`;
+        contextMenu.style.top = `${event.pageY}px`;
+        contextMenu.classList.remove("hidden");
+      };
+
+      const closeSongContextMenu = () => {
+        contextMenu.classList.add("hidden");
+      };
+
+      const startEditSong = (songId) => {
+        const song = songsById.get(songId);
+        if (!song) return;
+        editingSongId = songId;
+        songForm.querySelector("h3").textContent = "Editar canción";
+        songForm.querySelector(".submit-song").textContent = "Guardar cambios";
+        songForm.songTitle.value = song.title;
+        songForm.songArtist.value = song.artist;
+        songForm.songLyrics.value = song.lyrics;
+        setActiveScreen("nueva-cancion");
+        songFormWrapper.classList.remove("hidden");
+      };
+
+      const openDeleteSongModal = (songId) => {
+        const song = songsById.get(songId);
+        if (!song) return;
+        songPendingDeleteId = songId;
+        deleteSongText.textContent = `"${song.title}" - ${song.artist}`;
+        deleteSongModal.classList.remove("hidden");
+      };
+
+      const closeDeleteSongModal = () => {
+        deleteSongModal.classList.add("hidden");
+        songPendingDeleteId = null;
+      };
+
       navButtons.forEach((button) => button.addEventListener("click", () => setActiveScreen(button.dataset.screen)));
       openSongFormButton.addEventListener("click", () => songFormWrapper.classList.toggle("hidden"));
+      bandasBackButton.addEventListener("click", () => {
+        selectedPerformer = null;
+        renderBandasCantantesCards();
+      });
+      contextMenu.addEventListener("click", (event) => {
+        const action = event.target.dataset.action;
+        if (!action || !contextSongId) return;
+        const song = songsById.get(contextSongId);
+        if (!song) return;
+        if (action === "sections") {
+          sectionsSongLabel.textContent = `Secciones de: ${song.title} (${song.artist})`;
+          renderSectionsEditor(song.id);
+          setActiveScreen("secciones");
+        } else if (action === "repetitions") {
+          repetitionsSongLabel.textContent = `Repeticiones de: ${song.title} (${song.artist})`;
+          setActiveScreen("repeticiones");
+        } else if (action === "edit") {
+          startEditSong(song.id);
+        } else if (action === "delete") {
+          openDeleteSongModal(song.id);
+        }
+        closeSongContextMenu();
+      });
+      sectionsTypePicker.addEventListener("click", (event) => {
+        const sectionType = event.target.dataset.type;
+        if (!sectionType) return;
+        applySectionType(sectionType).catch((error) => {
+          console.error("Error guardando secciones:", error);
+          alert("No se pudieron guardar las secciones.");
+        });
+      });
       closeSongDetailButton.addEventListener("click", closeSongDetail);
+      cancelDeleteSongButton.addEventListener("click", closeDeleteSongModal);
+      confirmDeleteSongButton.addEventListener("click", () => {
+        if (!songPendingDeleteId) return;
+        deleteSong(songPendingDeleteId).catch((error) => {
+          console.error("Error eliminando canción:", error);
+          alert("No se pudo eliminar la canción.");
+        });
+      });
       songDetailModal.addEventListener("click", (event) => { if (event.target === songDetailModal) closeSongDetail(); });
-      document.addEventListener("click", (event) => {
-        if (contextMenuElement && !event.target.closest(".song-context-menu")) closeContextMenu();
+      deleteSongModal.addEventListener("click", (event) => { if (event.target === deleteSongModal) closeDeleteSongModal(); });
+      window.addEventListener("click", (event) => {
+        if (!contextMenu.contains(event.target)) closeSongContextMenu();
       });
       songDetailChordWorkspace.addEventListener("click", (event) => {
         if (!event.target.closest(".lyrics-token") && !event.target.closest("#chord-editor-panel")) {
-          closeTokenEditor();
+          selectedTokenKey = null;
+          selectedTokenElement = null;
+          chordEditorPanel.classList.add("hidden");
           const activeSong = songsById.get(appState.activeSongId);
           if (activeSong) renderSongLyricsEditor(activeSong);
         }
@@ -632,7 +616,10 @@
         const artist = songForm.songArtist.value.trim();
         const lyrics = songForm.songLyrics.value.trim();
         if (!title || !artist || !lyrics) return;
-        saveSong({ title, artist, lyrics }).catch((error) => {
+        const saveAction = editingSongId
+          ? updateSong(editingSongId, { title, artist, lyrics })
+          : saveSong({ title, artist, lyrics });
+        saveAction.catch((error) => {
           console.error("Error guardando canción:", error);
           alert("No se pudo guardar la canción. Revisa la consola para más detalle.");
         });
@@ -660,11 +647,31 @@
             band: artist,
             singer: artist
           },
+          sections: [],
           createdAt: serverTimestamp()
         });
         await loadSongs();
+        resetSongForm();
+      };
+
+      const updateSong = async (songId, { title, artist, lyrics }) => {
+        await updateDoc(doc(db, "songs", songId), { title, artist, lyrics });
+        await loadSongs();
+        resetSongForm();
+      };
+
+      const deleteSong = async (songId) => {
+        await deleteDoc(doc(db, "songs", songId));
+        await loadSongs();
+        closeDeleteSongModal();
+      };
+
+      const resetSongForm = () => {
+        editingSongId = null;
         songForm.reset();
         songFormWrapper.classList.add("hidden");
+        songForm.querySelector("h3").textContent = "Agregar canción";
+        songForm.querySelector(".submit-song").textContent = "Guardar canción";
       };
 
 
@@ -680,28 +687,20 @@
             wordChords: song.wordChords || {}
           });
           alert("Acordes guardados correctamente.");
-          closeSongDetail();
         } catch (error) {
           console.error("Error guardando acordes de la canción:", error);
           alert("No se pudieron guardar los acordes. Inténtalo de nuevo.");
         }
       };
 
-      saveSongChordsButton.addEventListener("click", async () => {
-        await saveSongWordChords();
-      });
-
-      closeChordEditorButton.addEventListener("click", () => {
-        const song = songsById.get(appState.activeSongId);
-        closeTokenEditor();
-        if (song) renderSongLyricsEditor(song);
+      saveSongChordsButton.addEventListener("click", () => {
+        saveSongWordChords();
       });
 
       saveTokenChordButton.addEventListener("click", () => {
         const song = songsById.get(appState.activeSongId);
         if (!song || !selectedTokenKey) return;
         song.wordChords[selectedTokenKey] = buildChordLabel();
-        closeTokenEditor();
         renderSongLyricsEditor(song);
       });
 

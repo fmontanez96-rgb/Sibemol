@@ -1647,7 +1647,6 @@
             chordMax,
             chordLineFactor / mostChordsInLine,
             chordTotalFactor / totalChordCount,
-            lyricsRem * 0.66,
           ),
           chordMin,
           chordMax,
@@ -1680,21 +1679,41 @@
         setPlaybackTypography(getPlaybackTypography(sectionLines));
       };
 
-      const playbackContentOverflows = () => {
-        const tolerance = 2;
-        const visibleElements = [
+      const elementOverflows = (element, tolerance = 2) =>
+        Boolean(
+          element &&
+            (element.scrollHeight > element.clientHeight + tolerance ||
+              element.scrollWidth > element.clientWidth + tolerance),
+        );
+
+      const getPlaybackOverflowState = () => {
+        const layoutElements = [
           songPlayPanel,
           songPlaySection,
           songPlaySection.querySelector(".song-play-section-grid"),
+        ];
+        const lyricsElements = [
           ...songPlaySection.querySelectorAll(
-            ".song-play-column, .song-play-lines, .song-play-chords-line",
+            ".song-play-lyrics-column, .song-play-lyrics-column .song-play-lines",
           ),
-        ].filter(Boolean);
+        ];
+        const chordElements = [
+          ...songPlaySection.querySelectorAll(
+            ".song-play-chords-column, .song-play-chords-column .song-play-lines, .song-play-chords-line",
+          ),
+        ];
 
-        return visibleElements.some(
-          (element) =>
-            element.scrollHeight > element.clientHeight + tolerance ||
-            element.scrollWidth > element.clientWidth + tolerance,
+        return {
+          layout: layoutElements.some((element) => elementOverflows(element)),
+          lyrics: lyricsElements.some((element) => elementOverflows(element)),
+          chords: chordElements.some((element) => elementOverflows(element)),
+        };
+      };
+
+      const playbackContentOverflows = () => {
+        const overflowState = getPlaybackOverflowState();
+        return (
+          overflowState.layout || overflowState.lyrics || overflowState.chords
         );
       };
 
@@ -1711,21 +1730,33 @@
         setPlaybackTypography(typography);
 
         while (playbackContentOverflows() && attempts < 28) {
-          typography.lyricsRem = Math.max(
-            minimums.lyricsRem,
-            typography.lyricsRem * 0.92,
-          );
-          typography.chordsRem = Math.max(
-            minimums.chordsRem,
-            typography.chordsRem * 0.9,
-          );
-          typography.gapPx = Math.max(minimums.gapPx, typography.gapPx - 1);
+          const overflowState = getPlaybackOverflowState();
+          const shrinkLyrics =
+            overflowState.lyrics ||
+            (overflowState.layout && !overflowState.chords);
+          const shrinkChords = overflowState.chords;
+
+          if (shrinkLyrics) {
+            typography.lyricsRem = Math.max(
+              minimums.lyricsRem,
+              typography.lyricsRem * 0.92,
+            );
+          }
+          if (shrinkChords) {
+            typography.chordsRem = Math.max(
+              minimums.chordsRem,
+              typography.chordsRem * 0.9,
+            );
+          }
+          if (shrinkLyrics || shrinkChords) {
+            typography.gapPx = Math.max(minimums.gapPx, typography.gapPx - 1);
+          }
           setPlaybackTypography(typography);
           attempts += 1;
 
           if (
-            typography.lyricsRem <= minimums.lyricsRem &&
-            typography.chordsRem <= minimums.chordsRem &&
+            (!shrinkLyrics || typography.lyricsRem <= minimums.lyricsRem) &&
+            (!shrinkChords || typography.chordsRem <= minimums.chordsRem) &&
             typography.gapPx <= minimums.gapPx
           ) {
             break;

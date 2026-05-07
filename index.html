@@ -1996,6 +1996,29 @@
       const getRepetitionBlockIndex = (song, block) =>
         (song.repetitionBlocks || []).indexOf(block);
 
+      const getCanonicalRepetitionBlock = (song, block) => {
+        const blocks = song.repetitionBlocks || [];
+        const blockIndex = blocks.indexOf(block);
+        if (blockIndex < 0) return block;
+
+        const canonicalIndex = getCanonicalRepetitionBlockIndex(
+          blocks,
+          blockIndex,
+        );
+        return Number.isInteger(canonicalIndex)
+          ? blocks[canonicalIndex] || block
+          : block;
+      };
+
+      const getCanonicalRepetitionBlockKey = (song, block) => {
+        const blockIndex = getRepetitionBlockIndex(song, block);
+        if (block?.id) return block.id;
+        if (blockIndex >= 0) return `index-${blockIndex}`;
+        return `${block?.start?.line ?? ""}-${block?.start?.token ?? ""}-${
+          block?.end?.line ?? ""
+        }-${block?.end?.token ?? ""}`;
+      };
+
       const getRepetitionBlockLabel = (song, block) => {
         const blockIndex = getRepetitionBlockIndex(song, block);
         return `Bloque ${blockIndex + 1}`;

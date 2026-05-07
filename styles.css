@@ -694,7 +694,16 @@ body {
   margin: 0;
 }
 
+.repetition-line-words {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+}
+
 .repetition-token {
+  background: transparent;
   border-radius: 6px;
   padding: 3px 5px;
   transition: background 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
@@ -706,58 +715,39 @@ body {
   box-shadow: inset 0 0 0 1px #aab0ba;
 }
 
-.repetition-block-button {
-  border: 1px solid #aeb4bd;
-  border-radius: 10px;
-  background: linear-gradient(145deg, #f5f6f8 0%, #d7dbe0 52%, #bfc5cc 100%);
-  color: #222;
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 7px 9px;
-  cursor: pointer;
-  box-shadow:
-    inset 2px 2px 4px rgba(255, 255, 255, 0.72),
-    inset -2px -2px 4px rgba(105, 114, 126, 0.18),
-    0 2px 5px rgba(0, 0, 0, 0.1);
+.repetition-token.in-repetition-block {
+  font-weight: 700;
 }
 
-.repetition-block-button:hover {
-  background: linear-gradient(145deg, #ffffff 0%, #e1e4e8 48%, #c6ccd3 100%);
-}
-
-.repetitions-line {
+.repetition-block-card {
   align-items: flex-start;
-  display: grid;
-  gap: 8px 12px;
+  border: 1px solid currentColor;
+  border-radius: 14px;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 15%, transparent);
+  display: inline-grid;
+  gap: 10px;
   grid-template-columns: minmax(0, 1fr) auto;
+  margin: 2px 0;
+  padding: 10px 12px;
 }
 
-.repetition-line-words {
+.repetition-block-words {
+  display: grid;
+  gap: 7px;
+}
+
+.repetition-block-line {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
   margin: 0;
 }
 
-.repetition-line-actions {
-  align-items: flex-start;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 92px;
-}
-
-.repetition-token.in-repetition-block {
-  border-color: currentColor;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 25%, transparent);
-  font-weight: 700;
-}
-
 .repetition-block-button {
   align-items: center;
   border: 1px solid currentColor;
   border-radius: 999px;
+  cursor: pointer;
   display: inline-flex;
   font-weight: 800;
   justify-content: center;
@@ -819,13 +809,8 @@ body {
 }
 
 @media (max-width: 680px) {
-  .repetitions-line {
+  .repetition-block-card {
     grid-template-columns: 1fr;
-  }
-
-  .repetition-line-actions {
-    flex-direction: row;
-    flex-wrap: wrap;
   }
 }
 

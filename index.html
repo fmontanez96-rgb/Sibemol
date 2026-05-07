@@ -137,7 +137,10 @@
                   <label for="chord-accidental-select">Bemol / Sostenido</label>
                   <select id="chord-accidental-select"></select>
                 </div>
-                <button id="save-token-chord" type="button" class="submit-song">Guardar</button>
+                <div class="chord-editor-actions">
+                  <button id="save-token-chord" type="button" class="submit-song">Guardar</button>
+                  <button id="delete-token-chord" type="button" class="delete-token-chord hidden" aria-label="Borrar acorde">✖</button>
+                </div>
               </div>
               <div id="song-detail-lyrics-editor" class="lyrics-editor"></div>
             </div>
@@ -145,6 +148,24 @@
           </div>
           <aside id="song-chord-roadmap" class="song-chord-roadmap" aria-label="Seguidilla de acordes"></aside>
         </div>
+      </article>
+    </section>
+
+    <section id="song-play-modal" class="song-play-modal hidden" role="dialog" aria-modal="true" aria-labelledby="song-play-title">
+      <article id="song-play-panel" class="song-play-panel" tabindex="0">
+        <div class="song-play-header">
+          <div>
+            <p id="song-play-artist" class="song-play-artist"></p>
+            <h2 id="song-play-title"></h2>
+          </div>
+          <button id="close-song-play" class="song-play-close" type="button" aria-label="Cerrar reproducción">Cerrar</button>
+        </div>
+        <div class="song-play-meta">
+          <span id="song-play-section-label"></span>
+          <span id="song-play-counter"></span>
+        </div>
+        <div id="song-play-section" class="song-play-section" aria-live="polite"></div>
+        <p id="song-play-help" class="song-play-help">Click, barra espaciadora o toque la pantalla para avanzar a la siguiente sección.</p>
       </article>
     </section>
 
@@ -306,6 +327,15 @@
       const songDetailArtist = document.getElementById("song-detail-artist");
       const songDetailLyrics = document.getElementById("song-detail-lyrics");
       const songChordRoadmap = document.getElementById("song-chord-roadmap");
+      const songPlayModal = document.getElementById("song-play-modal");
+      const songPlayPanel = document.getElementById("song-play-panel");
+      const closeSongPlayButton = document.getElementById("close-song-play");
+      const songPlayTitle = document.getElementById("song-play-title");
+      const songPlayArtist = document.getElementById("song-play-artist");
+      const songPlaySectionLabel = document.getElementById("song-play-section-label");
+      const songPlayCounter = document.getElementById("song-play-counter");
+      const songPlaySection = document.getElementById("song-play-section");
+      const songPlayHelp = document.getElementById("song-play-help");
       const songDetailChordWorkspace = document.getElementById("song-detail-chord-workspace");
       const songDetailLyricsEditor = document.getElementById("song-detail-lyrics-editor");
       const chordEditorPanel = document.getElementById("chord-editor-panel");
@@ -313,6 +343,7 @@
       const chordQualitySelect = document.getElementById("chord-quality-select");
       const chordAccidentalSelect = document.getElementById("chord-accidental-select");
       const saveTokenChordButton = document.getElementById("save-token-chord");
+      const deleteTokenChordButton = document.getElementById("delete-token-chord");
       const openBulkChordsButton = document.getElementById("open-bulk-chords");
       const saveSongChordsButton = document.getElementById("save-song-chords");
       const bulkChordsModal = document.getElementById("bulk-chords-modal");
@@ -360,6 +391,9 @@
       let repetitionBlockPendingEditIndex = null;
       let repetitionBlockPendingRepeatSourceIndex = null;
       let selectedPerformer = null;
+      let playbackSongId = null;
+      let playbackSectionIndex = 0;
+      let playbackSections = [];
       let bulkChordSequence = [];
       let draggedChord = null;
 
@@ -377,6 +411,11 @@
       const setActiveScreen = (screenName) => {
         appState.activeScreen = screenName;
         screenPanels.forEach((panel) => panel.classList.toggle("hidden", panel.id !== `screen-${screenName}`));
+        navButtons.forEach((button) => {
+          const isActive = button.dataset.screen === screenName;
+          button.classList.toggle("is-active", isActive);
+          button.setAttribute("aria-current", isActive ? "page" : "false");
+        });
       };
 
       const tokenizeLyrics = (lyrics) => lyrics.split("\n").map((line) => line.trim().split(/\s+/).filter(Boolean));
@@ -392,6 +431,39 @@
         chordRootSelect.innerHTML = naturalRoots.map((root) => `<option value="${root}">${root}</option>`).join("");
         chordQualitySelect.innerHTML = qualityOptions.map((option) => `<option value="${option.value}">${option.label}</option>`).join("");
         chordAccidentalSelect.innerHTML = accidentalOptions.map((option) => `<option value="${option.value}">${option.label}</option>`).join("");
+      };
+
+      const resetChordSelectors = () => {
+        chordRootSelect.selectedIndex = 0;
+        chordQualitySelect.selectedIndex = 0;
+        chordAccidentalSelect.selectedIndex = 0;
+      };
+
+      const setChordSelectorsFromLabel = (chordLabel) => {
+        resetChordSelectors();
+        if (!chordLabel) return;
+
+        const root = naturalRoots.find((candidateRoot) => chordLabel.startsWith(candidateRoot));
+        if (!root) return;
+
+        const quality = chordLabel.endsWith("m") ? "m" : "";
+        const withoutRoot = chordLabel.slice(root.length);
+        const accidental = withoutRoot.replace(quality, "");
+
+        chordRootSelect.value = root;
+        chordQualitySelect.value = quality;
+        chordAccidentalSelect.value = accidentalOptions.some((option) => option.value === accidental) ? accidental : "";
+      };
+
+      const setDeleteTokenChordVisibility = (hasChord) => {
+        deleteTokenChordButton.classList.toggle("hidden", !hasChord);
+      };
+
+      const closeChordEditorPanel = () => {
+        selectedTokenKey = null;
+        selectedTokenElement = null;
+        chordEditorPanel.classList.add("hidden");
+        setDeleteTokenChordVisibility(false);
       };
 
 
@@ -478,10 +550,8 @@
 
       const renderChordPalette = () => {
         fillChordSelectors();
-        chordRootSelect.selectedIndex = 0;
-        chordQualitySelect.selectedIndex = 0;
-        chordAccidentalSelect.selectedIndex = 0;
-        chordEditorPanel.classList.add("hidden");
+        resetChordSelectors();
+        closeChordEditorPanel();
         closeBulkChordsModal();
       };
 
@@ -555,7 +625,7 @@
             if (assignedChord) {
               chordChip.classList.add("token-chord-draggable");
               chordChip.draggable = true;
-              chordChip.title = "Arrastra este acorde hacia otra palabra";
+              chordChip.title = "Haz click para editar este acorde o arrástralo hacia otra palabra";
               chordChip.addEventListener("dragstart", (event) => {
                 draggedChord = { chord: assignedChord, sourceTokenKey: tokenKey };
                 wordWrapper.classList.add("drag-source");
@@ -574,9 +644,9 @@
             wordWrapper.append(chordChip, wordText);
             wordWrapper.addEventListener("click", () => {
               selectedTokenKey = tokenKey;
-              selectedTokenElement = wordWrapper;
+              setChordSelectorsFromLabel(assignedChord);
+              setDeleteTokenChordVisibility(Boolean(assignedChord));
               chordEditorPanel.classList.remove("hidden");
-              positionChordEditorNearToken();
               renderSongLyricsEditor(song);
             });
             wordWrapper.addEventListener("dragover", (event) => {
@@ -641,7 +711,8 @@
           introduccion: "Introducción",
           estrofa: "Estrofa",
           estribillo: "Estribillo",
-          puente: "Puente"
+          puente: "Puente",
+          completa: "Canción completa"
         };
         return sectionNames[type] || "Sin sección";
       };
@@ -803,6 +874,163 @@
             .join("");
           return `<article class="${className}">${linesHtml}</article>`;
         }).join("");
+      };
+
+      const getFullSongSection = (song) => {
+        const lines = tokenizeLyrics(song.lyrics);
+        const firstLineIndex = lines.findIndex((tokens) => tokens.length);
+        if (firstLineIndex < 0) return null;
+        let lastLineIndex = firstLineIndex;
+        lines.forEach((tokens, lineIndex) => {
+          if (tokens.length) lastLineIndex = lineIndex;
+        });
+        return {
+          type: "completa",
+          start: { line: firstLineIndex, token: 0 },
+          end: { line: lastLineIndex, token: lines[lastLineIndex].length - 1 }
+        };
+      };
+
+      const buildPlaybackSections = (song) => {
+        const markedSections = getEffectiveSections(song);
+        if (markedSections.length) return markedSections;
+        const fullSongSection = getFullSongSection(song);
+        return fullSongSection ? [fullSongSection] : [];
+      };
+
+      const getPlaybackSectionLines = (song, section) => {
+        const lines = tokenizeLyrics(song.lyrics);
+        return lines.reduce((sectionLines, tokens, lineIndex) => {
+          const lineWords = [];
+          const lineChords = [];
+
+          tokens.forEach((token, tokenIndex) => {
+            if (!isTokenInSectionRange(lineIndex, tokenIndex, section)) return;
+            lineWords.push(token);
+            const chord = getEffectiveWordChord(song, lineIndex, tokenIndex);
+            if (chord) lineChords.push(chord);
+          });
+
+          if (lineWords.length) {
+            sectionLines.push({ words: lineWords, chords: lineChords });
+          }
+          return sectionLines;
+        }, []);
+      };
+
+      const renderPlaybackSection = () => {
+        const song = songsById.get(playbackSongId);
+        const section = playbackSections[playbackSectionIndex];
+        if (!song || !section) return;
+
+        songPlaySection.innerHTML = "";
+        const label = formatSectionName(section.type);
+        songPlaySectionLabel.textContent = label;
+        songPlayCounter.textContent = `${playbackSectionIndex + 1} / ${playbackSections.length}`;
+        songPlayHelp.textContent = playbackSectionIndex === playbackSections.length - 1
+          ? "Última sección: presiona click, barra espaciadora o toca la pantalla para cerrar."
+          : "Click, barra espaciadora o toque la pantalla para avanzar a la siguiente sección.";
+
+        const sectionTitle = document.createElement("h3");
+        sectionTitle.className = "song-play-section-title";
+        sectionTitle.textContent = label;
+
+        const sectionGrid = document.createElement("div");
+        sectionGrid.className = "song-play-section-grid";
+
+        const lyricsColumn = document.createElement("div");
+        lyricsColumn.className = "song-play-column song-play-lyrics-column";
+        const lyricsTitle = document.createElement("h4");
+        lyricsTitle.textContent = "Letra";
+        const lyricsBody = document.createElement("div");
+        lyricsBody.className = "song-play-lines";
+        lyricsColumn.append(lyricsTitle, lyricsBody);
+
+        const chordsColumn = document.createElement("div");
+        chordsColumn.className = "song-play-column song-play-chords-column";
+        const chordsTitle = document.createElement("h4");
+        chordsTitle.textContent = "Acordes";
+        const chordsBody = document.createElement("div");
+        chordsBody.className = "song-play-lines";
+        chordsColumn.append(chordsTitle, chordsBody);
+
+        const sectionLines = getPlaybackSectionLines(song, section);
+        if (!sectionLines.length) {
+          const emptyText = document.createElement("p");
+          emptyText.className = "song-play-empty";
+          emptyText.textContent = "Esta sección no tiene letra disponible.";
+          lyricsBody.appendChild(emptyText);
+        }
+
+        sectionLines.forEach(({ words, chords }) => {
+          const lyricsLine = document.createElement("p");
+          lyricsLine.textContent = words.join(" ");
+          lyricsBody.appendChild(lyricsLine);
+
+          const chordsLine = document.createElement("p");
+          chordsLine.className = chords.length ? "song-play-chords-line" : "song-play-chords-line song-play-chords-empty";
+          if (chords.length) {
+            chords.forEach((chord) => {
+              const chordChip = document.createElement("span");
+              chordChip.textContent = chord;
+              chordsLine.appendChild(chordChip);
+            });
+          } else {
+            chordsLine.textContent = "—";
+          }
+          chordsBody.appendChild(chordsLine);
+        });
+
+        sectionGrid.append(lyricsColumn, chordsColumn);
+        songPlaySection.append(sectionTitle, sectionGrid);
+      };
+
+      const closeSongPlayback = () => {
+        if (document.fullscreenElement === songPlayPanel) {
+          document.exitFullscreen();
+        }
+        songPlayModal.classList.add("hidden");
+        playbackSongId = null;
+        playbackSectionIndex = 0;
+        playbackSections = [];
+      };
+
+      const advanceSongPlayback = () => {
+        if (songPlayModal.classList.contains("hidden")) return;
+        if (playbackSectionIndex >= playbackSections.length - 1) {
+          closeSongPlayback();
+          return;
+        }
+        playbackSectionIndex += 1;
+        renderPlaybackSection();
+      };
+
+      const openSongPlayback = () => {
+        const song = songsById.get(appState.activeSongId);
+        if (!song) return;
+        playbackSongId = song.id;
+        playbackSectionIndex = 0;
+        playbackSections = buildPlaybackSections(song);
+        songPlayTitle.textContent = song.title;
+        songPlayArtist.textContent = song.artist;
+
+        if (!playbackSections.length) {
+          songPlaySectionLabel.textContent = "Sin secciones";
+          songPlayCounter.textContent = "0 / 0";
+          songPlaySection.innerHTML = "";
+          const emptyText = document.createElement("p");
+          emptyText.className = "song-play-empty";
+          emptyText.textContent = "Esta canción no tiene letra disponible para reproducir.";
+          songPlaySection.appendChild(emptyText);
+        } else {
+          renderPlaybackSection();
+        }
+
+        songPlayModal.classList.remove("hidden");
+        if (songPlayPanel.requestFullscreen && document.fullscreenElement !== songPlayPanel) {
+          songPlayPanel.requestFullscreen().catch(() => {});
+        }
+        songPlayPanel.focus();
       };
 
       const renderSectionsEditor = (songId) => {
@@ -1303,9 +1531,7 @@
 
       const closeSongDetail = () => {
         songDetailModal.classList.add("hidden");
-        selectedTokenKey = null;
-        selectedTokenElement = null;
-        chordEditorPanel.classList.add("hidden");
+        closeChordEditorPanel();
         closeBulkChordsModal();
       };
 
@@ -1541,6 +1767,8 @@
       confirmDeleteRepetitionBlockButton.addEventListener("click", deleteRepetitionBlock);
       cancelRepetitionRepeatPickerButton.addEventListener("click", closeRepetitionRepeatPicker);
       closeSongDetailButton.addEventListener("click", closeSongDetail);
+      playSongDetailButton.addEventListener("click", openSongPlayback);
+      closeSongPlayButton.addEventListener("click", closeSongPlayback);
       cancelDeleteSongButton.addEventListener("click", closeDeleteSongModal);
       confirmDeleteSongButton.addEventListener("click", () => {
         if (!songPendingDeleteId) return;
@@ -1550,6 +1778,10 @@
         });
       });
       songDetailModal.addEventListener("click", (event) => { if (event.target === songDetailModal) closeSongDetail(); });
+      songPlayModal.addEventListener("pointerup", (event) => {
+        if (event.target.closest("#close-song-play")) return;
+        advanceSongPlayback();
+      });
       organizeRemixModal.addEventListener("click", (event) => { if (event.target === organizeRemixModal) closeRemixModal("organize"); });
       randomRemixModal.addEventListener("click", (event) => { if (event.target === randomRemixModal) closeRemixModal("random"); });
       bulkChordsModal.addEventListener("click", (event) => { if (event.target === bulkChordsModal) closeBulkChordsModal(); });
@@ -1562,9 +1794,7 @@
       });
       songDetailChordWorkspace.addEventListener("click", (event) => {
         if (!event.target.closest(".lyrics-token") && !event.target.closest("#chord-editor-panel")) {
-          selectedTokenKey = null;
-          selectedTokenElement = null;
-          chordEditorPanel.classList.add("hidden");
+          closeChordEditorPanel();
           const activeSong = songsById.get(appState.activeSongId);
           if (activeSong) renderSongLyricsEditor(activeSong);
         }
@@ -1666,8 +1896,34 @@
         const song = songsById.get(appState.activeSongId);
         if (!song || !selectedTokenKey) return;
         if (!song.wordChords) song.wordChords = {};
-        song.wordChords[selectedTokenKey] = buildChordLabel();
+        const canonicalTokenKey = getCanonicalRepetitionTokenKey(song, selectedTokenKey);
+        song.wordChords[canonicalTokenKey] = buildChordLabel();
+        song.wordChords = syncRepeatedBlockChords(song, song.repetitionBlocks || [], song.wordChords);
+        closeChordEditorPanel();
         renderSongLyricsEditor(song);
+      });
+
+      deleteTokenChordButton.addEventListener("click", () => {
+        const song = songsById.get(appState.activeSongId);
+        if (!song || !selectedTokenKey) return;
+        const canonicalTokenKey = getCanonicalRepetitionTokenKey(song, selectedTokenKey);
+        if (song.wordChords) {
+          delete song.wordChords[canonicalTokenKey];
+          delete song.wordChords[selectedTokenKey];
+          song.wordChords = syncRepeatedBlockChords(song, song.repetitionBlocks || [], song.wordChords);
+        }
+        closeChordEditorPanel();
+        renderSongLyricsEditor(song);
+      });
+
+      window.addEventListener("keydown", (event) => {
+        if (songPlayModal.classList.contains("hidden")) return;
+        if (event.code === "Space") {
+          event.preventDefault();
+          advanceSongPlayback();
+        } else if (event.code === "Escape") {
+          closeSongPlayback();
+        }
       });
 
       window.addEventListener("resize", positionChordEditorNearToken);

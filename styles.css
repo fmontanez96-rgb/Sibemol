@@ -1093,7 +1093,7 @@ body {
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr) auto;
-  gap: clamp(10px, 1.8vw, 22px);
+  gap: clamp(8px, 1.4vw, 18px);
   min-height: 0;
   min-height: 100%;
   outline: none;
@@ -1164,8 +1164,8 @@ body {
 
 .song-play-section-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.55fr) minmax(220px, 0.45fr);
-  gap: clamp(14px, 3vw, 42px);
+  grid-template-columns: minmax(0, 1.1fr) minmax(260px, 0.9fr);
+  gap: clamp(10px, 2vw, 30px);
   min-height: 0;
   overflow: hidden;
 }
@@ -1177,7 +1177,13 @@ body {
   min-height: 0;
   min-width: 0;
   overflow: hidden;
-  padding: clamp(12px, 2vw, 24px);
+  padding: clamp(10px, 1.6vw, 20px);
+}
+
+.song-play-lyrics-column,
+.song-play-chords-column {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
 .song-play-column h4 {
@@ -1192,6 +1198,7 @@ body {
   display: grid;
   gap: var(--play-lines-gap);
   min-height: 0;
+  overflow: hidden;
 }
 
 .song-play-lines p {
@@ -1207,7 +1214,8 @@ body {
 .song-play-chords-line {
   display: flex;
   flex-wrap: wrap;
-  gap: clamp(5px, 0.9vw, 10px);
+  gap: clamp(3px, 0.65vw, 8px);
+  line-height: 1;
 }
 
 .song-play-chords-line span {
@@ -1218,7 +1226,7 @@ body {
   font-size: var(--play-chords-font-size);
   font-weight: 800;
   line-height: 1;
-  padding: clamp(6px, 1vw, 10px) clamp(9px, 1.3vw, 14px);
+  padding: clamp(4px, 0.7vw, 8px) clamp(7px, 1vw, 12px);
 }
 
 .song-play-chords-empty {
@@ -1238,7 +1246,7 @@ body {
 
 @media (max-width: 760px) {
   .song-play-modal {
-    padding: 10px;
+    padding: 8px;
   }
 
   .song-play-panel {
@@ -1272,8 +1280,8 @@ body {
 
   .song-play-section-grid {
     grid-template-columns: 1fr;
-    grid-template-rows: minmax(0, 1fr) auto;
-    gap: 8px;
+    grid-template-rows: minmax(0, 1fr) minmax(0, 0.95fr);
+    gap: 6px;
   }
 
   .song-play-column {
@@ -1286,8 +1294,12 @@ body {
     margin-bottom: 6px;
   }
 
+  .song-play-chords-line {
+    gap: 3px;
+  }
+
   .song-play-chords-line span {
-    padding: 5px 8px;
+    padding: 4px 6px;
   }
 }
 

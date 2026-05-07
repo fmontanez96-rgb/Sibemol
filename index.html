@@ -957,33 +957,81 @@
         const lineCount = Math.max(sectionLines.length, 1);
         const longestLyricsLine = Math.max(...sectionLines.map(({ words }) => words.join(" ").length), 1);
         const mostChordsInLine = Math.max(...sectionLines.map(({ chords }) => chords.length), 1);
-        const lyricLineFactor = isMobilePlayback ? 8.2 : 10.8;
-        const lyricWidthFactor = isMobilePlayback ? 45 : 78;
-        const lyricMax = isMobilePlayback ? 2.35 : 3.1;
-        const lyricMin = isMobilePlayback ? 0.72 : 0.95;
-        const chordLineFactor = isMobilePlayback ? 7 : 12;
-        const chordMax = isMobilePlayback ? 1.2 : 1.7;
-        const chordMin = isMobilePlayback ? 0.62 : 0.82;
+        const totalChordCount = Math.max(sectionLines.reduce((total, { chords }) => total + chords.length, 0), 1);
+        const lyricLineFactor = isMobilePlayback ? 7.8 : 10.4;
+        const lyricWidthFactor = isMobilePlayback ? 42 : 74;
+        const lyricMax = isMobilePlayback ? 2.1 : 3;
+        const lyricMin = isMobilePlayback ? 0.46 : 0.62;
+        const chordLineFactor = isMobilePlayback ? 8.6 : 16;
+        const chordTotalFactor = isMobilePlayback ? 18 : 38;
+        const chordMax = isMobilePlayback ? 1.16 : 1.65;
+        const chordMin = isMobilePlayback ? 0.4 : 0.54;
         const lyricsRem = clampNumber(
           Math.min(lyricMax, lyricLineFactor / lineCount, lyricWidthFactor / longestLyricsLine),
           lyricMin,
           lyricMax
         );
         const chordsRem = clampNumber(
-          Math.min(chordMax, chordLineFactor / mostChordsInLine, lyricsRem * 0.58),
+          Math.min(chordMax, chordLineFactor / mostChordsInLine, chordTotalFactor / totalChordCount, lyricsRem * 0.66),
           chordMin,
           chordMax
         );
-        const gapPx = clampNumber(Math.round(lyricsRem * (isMobilePlayback ? 3.5 : 5)), isMobilePlayback ? 3 : 5, isMobilePlayback ? 9 : 16);
+        const gapPx = clampNumber(Math.round(lyricsRem * (isMobilePlayback ? 3 : 4.5)), isMobilePlayback ? 2 : 4, isMobilePlayback ? 8 : 14);
 
         return { lyricsRem, chordsRem, gapPx };
       };
 
-      const applyPlaybackTypography = (sectionLines) => {
-        const { lyricsRem, chordsRem, gapPx } = getPlaybackTypography(sectionLines);
+      const setPlaybackTypography = ({ lyricsRem, chordsRem, gapPx }) => {
         songPlayPanel.style.setProperty("--play-lyrics-font-size", `${lyricsRem.toFixed(2)}rem`);
         songPlayPanel.style.setProperty("--play-chords-font-size", `${chordsRem.toFixed(2)}rem`);
-        songPlayPanel.style.setProperty("--play-lines-gap", `${gapPx}px`);
+        songPlayPanel.style.setProperty("--play-lines-gap", `${Math.round(gapPx)}px`);
+      };
+
+      const applyPlaybackTypography = (sectionLines) => {
+        setPlaybackTypography(getPlaybackTypography(sectionLines));
+      };
+
+      const playbackContentOverflows = () => {
+        const tolerance = 2;
+        const visibleElements = [
+          songPlayPanel,
+          songPlaySection,
+          songPlaySection.querySelector(".song-play-section-grid"),
+          ...songPlaySection.querySelectorAll(".song-play-column, .song-play-lines, .song-play-chords-line")
+        ].filter(Boolean);
+
+        return visibleElements.some((element) => (
+          element.scrollHeight > element.clientHeight + tolerance
+          || element.scrollWidth > element.clientWidth + tolerance
+        ));
+      };
+
+      const fitPlaybackToScreen = (sectionLines) => {
+        const isMobilePlayback = window.matchMedia("(max-width: 760px)").matches;
+        const minimums = {
+          lyricsRem: isMobilePlayback ? 0.4 : 0.52,
+          chordsRem: isMobilePlayback ? 0.34 : 0.46,
+          gapPx: isMobilePlayback ? 1 : 2
+        };
+        const typography = getPlaybackTypography(sectionLines);
+        let attempts = 0;
+        setPlaybackTypography(typography);
+
+        while (playbackContentOverflows() && attempts < 28) {
+          typography.lyricsRem = Math.max(minimums.lyricsRem, typography.lyricsRem * 0.92);
+          typography.chordsRem = Math.max(minimums.chordsRem, typography.chordsRem * 0.9);
+          typography.gapPx = Math.max(minimums.gapPx, typography.gapPx - 1);
+          setPlaybackTypography(typography);
+          attempts += 1;
+
+          if (
+            typography.lyricsRem <= minimums.lyricsRem
+            && typography.chordsRem <= minimums.chordsRem
+            && typography.gapPx <= minimums.gapPx
+          ) {
+            break;
+          }
+        }
       };
 
       const renderPlaybackSection = () => {
@@ -1052,6 +1100,7 @@
 
         sectionGrid.append(lyricsColumn, chordsColumn);
         songPlaySection.append(sectionTitle, sectionGrid);
+        requestAnimationFrame(() => fitPlaybackToScreen(sectionLines));
       };
 
       const closeSongPlayback = () => {

@@ -857,13 +857,22 @@
         });
       };
 
-      const buildChordRoadmapItems = (song) => getNumberedSectionData(song)
-        .map((section) => ({
-          type: section.type,
-          label: section.label,
-          chords: section.chords,
-          showChords: true
-        }));
+      const buildChordRoadmapItems = (song) => {
+        const displayedSectionLabels = new Set();
+
+        return getNumberedSectionData(song)
+          .map((section) => {
+            const isRepeatedSection = displayedSectionLabels.has(section.label);
+            displayedSectionLabels.add(section.label);
+
+            return {
+              type: section.type,
+              label: section.label,
+              chords: section.chords,
+              showChords: !isRepeatedSection
+            };
+          });
+      };
 
       const renderChordRoadmap = (song) => {
         songChordRoadmap.innerHTML = "";

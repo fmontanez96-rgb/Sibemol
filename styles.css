@@ -582,3 +582,109 @@ body {
 .section-puente {
   background: #fff2a8;
 }
+
+.song-detail-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 18px;
+  align-items: start;
+}
+
+.song-detail-main {
+  min-width: 0;
+}
+
+.song-chord-roadmap {
+  position: sticky;
+  top: 0;
+  max-height: calc(90vh - 48px);
+  overflow: auto;
+  border: 1px solid #dedede;
+  border-radius: 12px;
+  padding: 14px;
+  background: #ffffff;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12);
+}
+
+.song-chord-roadmap h4 {
+  margin: 0 0 12px;
+  font-size: 1rem;
+}
+
+.roadmap-empty {
+  margin: 0;
+  color: #666;
+  font-size: 0.92rem;
+  line-height: 1.4;
+}
+
+.chord-roadmap-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.roadmap-section {
+  border-radius: 10px;
+  padding: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.roadmap-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.roadmap-section p {
+  margin: 0;
+  line-height: 1.35;
+}
+
+.roadmap-repeat {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #111;
+  color: #fff;
+  padding: 3px 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.roadmap-section-introduccion {
+  background: #e7fce8;
+}
+
+.roadmap-section-estrofa {
+  background: #e8f0ff;
+}
+
+.roadmap-section-estribillo {
+  background: #ffe7e7;
+}
+
+.roadmap-section-puente {
+  background: #fff8cc;
+}
+
+@media (min-width: 980px) {
+  .song-detail-panel {
+    width: min(1040px, 100%);
+  }
+}
+
+@media (max-width: 900px) {
+  .song-detail-content {
+    grid-template-columns: 1fr;
+  }
+
+  .song-chord-roadmap {
+    position: static;
+    max-height: none;
+    order: -1;
+  }
+}

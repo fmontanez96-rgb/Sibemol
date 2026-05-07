@@ -749,7 +749,6 @@
         if (block && song) {
           const colors = getRepetitionBlockColors(song, block);
           button.classList.add("in-repetition-block");
-          button.style.backgroundColor = colors.background;
           button.style.color = colors.text;
         }
         if (repetitionSelectionStart?.line === lineIndex && repetitionSelectionStart?.token === tokenIndex) {
@@ -759,7 +758,7 @@
         return button;
       };
 
-      const appendRepetitionBlockButton = (song, block, blockTokens, line) => {
+      const createRepetitionBlockButton = (song, block) => {
         const blockButton = document.createElement("button");
         const colors = getRepetitionBlockColors(song, block);
         blockButton.type = "button";
@@ -769,7 +768,37 @@
         blockButton.style.color = colors.text;
         blockButton.setAttribute("aria-label", getRepetitionBlockLabel(song, block));
         blockButton.addEventListener("click", (event) => openRepetitionBlockMenu(event, song, block));
-        line.querySelector(".repetition-line-actions")?.appendChild(blockButton);
+        return blockButton;
+      };
+
+      const createRepetitionBlockCard = (song, block, lines) => {
+        const colors = getRepetitionBlockColors(song, block);
+        const card = document.createElement("div");
+        card.className = "repetition-block-card";
+        card.style.backgroundColor = colors.background;
+        card.style.color = colors.text;
+        card.style.borderColor = colors.text;
+
+        const blockWords = document.createElement("div");
+        blockWords.className = "repetition-block-words";
+
+        for (let lineIndex = block.start.line; lineIndex <= block.end.line; lineIndex += 1) {
+          const firstToken = lineIndex === block.start.line ? block.start.token : 0;
+          const lastToken = lineIndex === block.end.line ? block.end.token : (lines[lineIndex]?.length || 0) - 1;
+          const blockLine = document.createElement("p");
+          blockLine.className = "repetition-block-line";
+
+          for (let tokenIndex = firstToken; tokenIndex <= lastToken; tokenIndex += 1) {
+            const token = lines[lineIndex]?.[tokenIndex];
+            if (!token) continue;
+            blockLine.appendChild(createRepetitionWordButton(token, lineIndex, tokenIndex, block, song));
+          }
+
+          blockWords.appendChild(blockLine);
+        }
+
+        card.append(blockWords, createRepetitionBlockButton(song, block));
+        return card;
       };
 
       const renderRepetitionsLyrics = (song) => {
@@ -777,46 +806,37 @@
         repetitionsLyrics.innerHTML = "";
 
         const lines = tokenizeLyrics(song.lyrics);
+        const blocks = getRepetitionBlocks(song);
+
         lines.forEach((tokens, lineIndex) => {
           const line = document.createElement("div");
           line.className = "lyrics-editor-line repetitions-line";
 
-          const words = document.createElement("p");
+          const words = document.createElement("div");
           words.className = "repetition-line-words";
-          const actions = document.createElement("div");
-          actions.className = "repetition-line-actions";
-          line.append(words, actions);
-
-          let currentBlock = null;
-          let currentBlockTokens = [];
-          const lineBlocks = [];
+          line.appendChild(words);
 
           tokens.forEach((token, tokenIndex) => {
             const block = getTokenRepetitionBlock(song, lineIndex, tokenIndex);
             if (!block) {
-              if (currentBlock) {
-                lineBlocks.push({ block: currentBlock, tokens: currentBlockTokens });
-                currentBlock = null;
-                currentBlockTokens = [];
-              }
               words.appendChild(createRepetitionWordButton(token, lineIndex, tokenIndex));
               return;
             }
 
-            if (currentBlock && currentBlock !== block) {
-              lineBlocks.push({ block: currentBlock, tokens: currentBlockTokens });
-              currentBlockTokens = [];
+            if (block.start.line === lineIndex && block.start.token === tokenIndex) {
+              words.appendChild(createRepetitionBlockCard(song, block, lines));
             }
-            currentBlock = block;
-            currentBlockTokens.push(token);
-            words.appendChild(createRepetitionWordButton(token, lineIndex, tokenIndex, block, song));
           });
 
-          if (currentBlock) {
-            lineBlocks.push({ block: currentBlock, tokens: currentBlockTokens });
+          const hasVisibleContent = words.children.length > 0;
+          const isCoveredByPreviousBlock = tokens.some((_, tokenIndex) => {
+            const block = getTokenRepetitionBlock(song, lineIndex, tokenIndex);
+            return block && sectionTokenIndex(block.start.line, block.start.token) < sectionTokenIndex(lineIndex, tokenIndex);
+          });
+
+          if (hasVisibleContent || !isCoveredByPreviousBlock || !blocks.length) {
+            repetitionsLyrics.appendChild(line);
           }
-          lineBlocks.forEach(({ block, tokens }) => appendRepetitionBlockButton(song, block, tokens, line));
-          repetitionsLyrics.appendChild(line);
         });
       };
 

@@ -32,7 +32,19 @@
 
         <section id="screen-remix" class="screen-panel hidden">
           <h3>Remix</h3>
-          <p class="empty-text"></p>
+          <p class="detail-help">Elige una forma de crear tu remix y se abrirá una ventana emergente con la interfaz de la página.</p>
+          <div class="remix-option-grid" aria-label="Opciones de remix">
+            <button id="open-organize-remix" class="remix-option-card" type="button">
+              <span class="remix-option-icon">📋</span>
+              <span class="remix-option-title">ORGANIZAR LISTA</span>
+              <span class="remix-option-copy">Ordena canciones y secciones para armar la secuencia.</span>
+            </button>
+            <button id="open-random-remix" class="remix-option-card remix-option-card-dark" type="button">
+              <span class="remix-option-icon">🎲</span>
+              <span class="remix-option-title">ALEATORIO</span>
+              <span class="remix-option-copy">Deja que Sib elija una canción sorpresa para comenzar.</span>
+            </button>
+          </div>
         </section>
 
         <section id="screen-secciones" class="screen-panel hidden">
@@ -141,6 +153,47 @@
       <button type="button" data-action="delete">Eliminar</button>
     </div>
 
+    <section id="organize-remix-modal" class="remix-modal hidden" role="dialog" aria-modal="true" aria-labelledby="organize-remix-title">
+      <article class="remix-modal-panel">
+        <div class="remix-modal-header">
+          <div>
+            <p class="remix-modal-kicker">Remix</p>
+            <h3 id="organize-remix-title">ORGANIZAR LISTA</h3>
+          </div>
+          <button class="close-song-detail remix-modal-close" type="button" data-close-remix-modal="organize" aria-label="Cerrar organizar lista">Volver</button>
+        </div>
+        <p class="detail-help">Construye una lista para tu remix usando las canciones cargadas en el cancionero.</p>
+        <div class="remix-interface-shell">
+          <div class="remix-interface-toolbar">
+            <span>Lista de mezcla</span>
+            <button type="button" class="submit-song remix-small-action">Guardar orden</button>
+          </div>
+          <ol id="organize-remix-list" class="remix-song-list"></ol>
+        </div>
+      </article>
+    </section>
+
+    <section id="random-remix-modal" class="remix-modal hidden" role="dialog" aria-modal="true" aria-labelledby="random-remix-title">
+      <article class="remix-modal-panel">
+        <div class="remix-modal-header">
+          <div>
+            <p class="remix-modal-kicker">Remix</p>
+            <h3 id="random-remix-title">ALEATORIO</h3>
+          </div>
+          <button class="close-song-detail remix-modal-close" type="button" data-close-remix-modal="random" aria-label="Cerrar aleatorio">Volver</button>
+        </div>
+        <p class="detail-help">Presiona el botón para generar una propuesta rápida con una canción del cancionero.</p>
+        <div class="remix-random-board">
+          <div id="random-remix-result" class="remix-random-result">
+            <span class="remix-option-icon">🎵</span>
+            <strong>Esperando tu mezcla aleatoria</strong>
+            <p>Cuando haya canciones cargadas, Sib mostrará una opción aquí.</p>
+          </div>
+          <button id="shuffle-remix-song" type="button" class="submit-song remix-shuffle-button">Mezclar ahora</button>
+        </div>
+      </article>
+    </section>
+
     <section id="delete-song-modal" class="confirm-modal hidden" role="dialog" aria-modal="true" aria-labelledby="delete-song-title">
       <article class="confirm-panel">
         <h3 id="delete-song-title">¿Seguro que deseas eliminar esta canción?</h3>
@@ -186,6 +239,13 @@
       const songForm = document.getElementById("song-form");
       const songbookCards = document.getElementById("songbook-cards");
       const chordsCards = document.getElementById("chords-cards");
+      const openOrganizeRemixButton = document.getElementById("open-organize-remix");
+      const openRandomRemixButton = document.getElementById("open-random-remix");
+      const organizeRemixModal = document.getElementById("organize-remix-modal");
+      const randomRemixModal = document.getElementById("random-remix-modal");
+      const organizeRemixList = document.getElementById("organize-remix-list");
+      const randomRemixResult = document.getElementById("random-remix-result");
+      const shuffleRemixSongButton = document.getElementById("shuffle-remix-song");
       const navButtons = document.querySelectorAll(".piano-key");
       const screenPanels = document.querySelectorAll(".screen-panel");
       const songDetailModal = document.getElementById("song-detail-modal");
@@ -668,6 +728,75 @@
         deleteSongModal.classList.remove("hidden");
       };
 
+      const renderOrganizeRemixList = () => {
+        organizeRemixList.innerHTML = "";
+
+        if (!appState.songs.length) {
+          const emptyItem = document.createElement("li");
+          emptyItem.className = "remix-empty-item";
+          emptyItem.textContent = "Aún no hay canciones para organizar. Agrega canciones desde Nueva Canción.";
+          organizeRemixList.appendChild(emptyItem);
+          return;
+        }
+
+        appState.songs.forEach((song, index) => {
+          const listItem = document.createElement("li");
+          listItem.className = "remix-song-list-item";
+
+          const position = document.createElement("span");
+          position.className = "remix-song-position";
+          position.textContent = index + 1;
+
+          const songInfo = document.createElement("div");
+          const songTitle = document.createElement("strong");
+          const songArtist = document.createElement("p");
+          songTitle.textContent = song.title;
+          songArtist.textContent = song.artist;
+
+          songInfo.append(songTitle, songArtist);
+          listItem.append(position, songInfo);
+          organizeRemixList.appendChild(listItem);
+        });
+      };
+
+      const renderRandomRemixResult = (song = null) => {
+        randomRemixResult.innerHTML = "";
+
+        const icon = document.createElement("span");
+        icon.className = "remix-option-icon";
+        const title = document.createElement("strong");
+        const description = document.createElement("p");
+
+        if (!appState.songs.length) {
+          icon.textContent = "🎵";
+          title.textContent = "No hay canciones disponibles";
+          description.textContent = "Agrega canciones desde Nueva Canción para activar el modo aleatorio.";
+          randomRemixResult.append(icon, title, description);
+          return;
+        }
+
+        const selectedSong = song || appState.songs[Math.floor(Math.random() * appState.songs.length)];
+        icon.textContent = "🎧";
+        title.textContent = selectedSong.title;
+        description.textContent = selectedSong.artist;
+        randomRemixResult.append(icon, title, description);
+      };
+
+      const openRemixModal = (modalName) => {
+        if (modalName === "organize") {
+          renderOrganizeRemixList();
+          organizeRemixModal.classList.remove("hidden");
+          return;
+        }
+        renderRandomRemixResult();
+        randomRemixModal.classList.remove("hidden");
+      };
+
+      const closeRemixModal = (modalName) => {
+        const modal = modalName === "organize" ? organizeRemixModal : randomRemixModal;
+        modal.classList.add("hidden");
+      };
+
       const closeDeleteSongModal = () => {
         deleteSongModal.classList.add("hidden");
         songPendingDeleteId = null;
@@ -675,6 +804,12 @@
 
       navButtons.forEach((button) => button.addEventListener("click", () => setActiveScreen(button.dataset.screen)));
       openSongFormButton.addEventListener("click", () => songFormWrapper.classList.toggle("hidden"));
+      openOrganizeRemixButton.addEventListener("click", () => openRemixModal("organize"));
+      openRandomRemixButton.addEventListener("click", () => openRemixModal("random"));
+      shuffleRemixSongButton.addEventListener("click", () => renderRandomRemixResult());
+      document.querySelectorAll("[data-close-remix-modal]").forEach((button) => {
+        button.addEventListener("click", () => closeRemixModal(button.dataset.closeRemixModal));
+      });
       bandasBackButton.addEventListener("click", () => {
         selectedPerformer = null;
         renderBandasCantantesCards();
@@ -717,6 +852,8 @@
         });
       });
       songDetailModal.addEventListener("click", (event) => { if (event.target === songDetailModal) closeSongDetail(); });
+      organizeRemixModal.addEventListener("click", (event) => { if (event.target === organizeRemixModal) closeRemixModal("organize"); });
+      randomRemixModal.addEventListener("click", (event) => { if (event.target === randomRemixModal) closeRemixModal("random"); });
       deleteSongModal.addEventListener("click", (event) => { if (event.target === deleteSongModal) closeDeleteSongModal(); });
       window.addEventListener("click", (event) => {
         if (!contextMenu.contains(event.target)) closeSongContextMenu();

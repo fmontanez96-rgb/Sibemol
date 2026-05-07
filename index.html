@@ -791,14 +791,12 @@
       const getSectionChordSequence = (song, section) => {
         const lines = tokenizeLyrics(song.lyrics);
         const chords = [];
-        const addedChords = new Set();
 
         lines.forEach((tokens, lineIndex) => {
           tokens.forEach((token, tokenIndex) => {
             if (!isTokenInSectionRange(lineIndex, tokenIndex, section)) return;
             const chord = getEffectiveWordChord(song, lineIndex, tokenIndex);
-            if (!chord || addedChords.has(chord)) return;
-            addedChords.add(chord);
+            if (!chord) return;
             chords.push(chord);
           });
         });
@@ -806,32 +804,13 @@
         return chords;
       };
 
-      const findFirstChordSequenceForSectionType = (sectionItems, sectionType) => {
-        const sectionWithChords = sectionItems.find((item) => item.type === sectionType && item.chords.length);
-        return sectionWithChords?.chords || [];
-      };
-
-      const buildChordRoadmapItems = (song) => {
-        const sectionItems = getEffectiveSections(song)
-          .map((section) => ({
-            type: section.type,
-            label: formatSectionName(section.type),
-            chords: getSectionChordSequence(song, section)
-          }));
-
-        const alreadyShownSectionTypes = new Set();
-        return sectionItems.map((sectionItem) => {
-          const isFirstAppearance = !alreadyShownSectionTypes.has(sectionItem.type);
-          alreadyShownSectionTypes.add(sectionItem.type);
-          return {
-            ...sectionItem,
-            chords: isFirstAppearance
-              ? findFirstChordSequenceForSectionType(sectionItems, sectionItem.type)
-              : [],
-            showChords: isFirstAppearance
-          };
-        });
-      };
+      const buildChordRoadmapItems = (song) => getEffectiveSections(song)
+        .map((section) => ({
+          type: section.type,
+          label: formatSectionName(section.type),
+          chords: getSectionChordSequence(song, section),
+          showChords: true
+        }));
 
       const renderChordRoadmap = (song) => {
         songChordRoadmap.innerHTML = "";

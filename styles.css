@@ -335,7 +335,7 @@ body {
 }
 
 .hidden {
-  display: none;
+  display: none !important;
 }
 
 .confirm-modal.hidden {

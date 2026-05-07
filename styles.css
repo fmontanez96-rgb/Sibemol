@@ -533,10 +533,42 @@ body {
   font-size: 0.92rem;
 }
 
+.chord-editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 #save-token-chord.submit-song {
+  flex: 1;
   margin-top: 2px;
   padding: 8px 10px;
   font-size: 0.92rem;
+}
+
+.delete-token-chord {
+  align-items: center;
+  border: 1px solid #c40000;
+  border-radius: 999px;
+  background: #d71920;
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 1rem;
+  font-weight: 900;
+  height: 36px;
+  justify-content: center;
+  line-height: 1;
+  margin-top: 2px;
+  width: 36px;
+}
+
+.delete-token-chord:hover {
+  background: #a80000;
+}
+
+.delete-token-chord.hidden {
+  display: none;
 }
 
 .detail-help {

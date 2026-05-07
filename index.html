@@ -2052,71 +2052,13 @@
         return targetTokenKeys[mappedOffset] || null;
       };
 
-      const sortTokenKeysByPosition = (tokenKeys) =>
-        [...tokenKeys].sort((tokenKeyA, tokenKeyB) => {
-          const tokenA = parseTokenKey(tokenKeyA);
-          const tokenB = parseTokenKey(tokenKeyB);
-          return (
-            sectionTokenIndex(tokenA.line, tokenA.token) -
-            sectionTokenIndex(tokenB.line, tokenB.token)
-          );
-        });
-
-      const getRepetitionBlockSectionSegments = (song, block) => {
-        const blockTokenKeys = new Set(
-          getRepetitionBlockTokenKeys(song, block),
-        );
-        if (!blockTokenKeys.size) return [];
-
-        const sectionSegments = getEffectiveSections(song)
-          .map((section, sectionIndex) => ({
-            type: section.type,
-            sectionIndex,
-            tokenKeys: sortTokenKeysByPosition(
-              [...blockTokenKeys].filter((tokenKey) => {
-                const { line, token } = parseTokenKey(tokenKey);
-                return isTokenInSectionRange(line, token, section);
-              }),
-            ),
-          }))
-          .filter((segment) => segment.tokenKeys.length);
-
-        if (sectionSegments.length) return sectionSegments;
-        return [
-          {
-            type: "bloque",
-            sectionIndex: -1,
-            tokenKeys: sortTokenKeysByPosition([...blockTokenKeys]),
-          },
-        ];
-      };
-
-      const getMatchingRepeatedSectionSegment = (
-        targetSegments,
-        sourceSegments,
-        sourceSegmentIndex,
-      ) => {
-        const sourceSegment = sourceSegments[sourceSegmentIndex];
-        if (!sourceSegment) return null;
-        const sameTypeOccurrence =
-          sourceSegments
-            .slice(0, sourceSegmentIndex + 1)
-            .filter((segment) => segment.type === sourceSegment.type).length -
-          1;
-        const sameTypeTargetSegments = targetSegments.filter(
-          (segment) => segment.type === sourceSegment.type,
-        );
-        return (
-          sameTypeTargetSegments[sameTypeOccurrence] ||
-          targetSegments[sourceSegmentIndex] ||
-          sameTypeTargetSegments[0] ||
-          null
-        );
-      };
-
-      const getRepetitionBlockChordSequence = (tokenKeys, wordChords) =>
+      const getRepetitionBlockChordSequence = (
+        tokenKeys,
+        wordChords,
+        resolveChord = (tokenKey) => wordChords?.[tokenKey] || "",
+      ) =>
         tokenKeys.flatMap((tokenKey) =>
-          normalizeChordList(wordChords?.[tokenKey]),
+          normalizeChordList(resolveChord(tokenKey)),
         );
 
       const distributeChordSequenceToFirstTokens = (chords, tokenKeys) => {
@@ -2143,38 +2085,26 @@
         repeatedBlock,
         referencedBlock,
         wordChords,
+        resolveChord,
       ) => {
-        const repeatedSegments = getRepetitionBlockSectionSegments(
-          song,
-          repeatedBlock,
-        );
-        const referencedSegments = getRepetitionBlockSectionSegments(
+        const referencedTokenKeys = getRepetitionBlockTokenKeys(
           song,
           referencedBlock,
         );
-        const chordMap = {};
+        const repeatedTokenKeys = getRepetitionBlockTokenKeys(
+          song,
+          repeatedBlock,
+        );
+        const chordSequence = getRepetitionBlockChordSequence(
+          referencedTokenKeys,
+          wordChords,
+          resolveChord,
+        );
 
-        repeatedSegments.forEach((repeatedSegment, repeatedSegmentIndex) => {
-          const referencedSegment = getMatchingRepeatedSectionSegment(
-            referencedSegments,
-            repeatedSegments,
-            repeatedSegmentIndex,
-          );
-          if (!referencedSegment) return;
-          const chordSequence = getRepetitionBlockChordSequence(
-            referencedSegment.tokenKeys,
-            wordChords,
-          );
-          Object.assign(
-            chordMap,
-            distributeChordSequenceToFirstTokens(
-              chordSequence,
-              repeatedSegment.tokenKeys,
-            ),
-          );
-        });
-
-        return chordMap;
+        return distributeChordSequenceToFirstTokens(
+          chordSequence,
+          repeatedTokenKeys,
+        );
       };
 
       const getCanonicalRepetitionBlockReference = (song, tokenKey) => {
@@ -2241,10 +2171,33 @@
         };
       };
 
+      const getRepeatedBlockSourceChord = (
+        song,
+        tokenKey,
+        wordChords,
+        visitedTokenKeys = new Set(),
+      ) => {
+        if (visitedTokenKeys.has(tokenKey)) return "";
+        visitedTokenKeys.add(tokenKey);
+
+        if (getTokenRepeatedBlockReference(song, tokenKey)) {
+          return getInheritedRepeatedBlockChord(
+            song,
+            tokenKey,
+            wordChords,
+            visitedTokenKeys,
+          );
+        }
+
+        const canonicalTokenKey = getCanonicalRepetitionTokenKey(song, tokenKey);
+        return wordChords?.[canonicalTokenKey] || "";
+      };
+
       const getInheritedRepeatedBlockChord = (
         song,
         tokenKey,
         wordChords = song.wordChords || {},
+        visitedTokenKeys = new Set(),
       ) => {
         const repeatedBlockReference = getTokenRepeatedBlockReference(
           song,
@@ -2257,54 +2210,70 @@
           repeatedBlockReference.currentBlock,
           repeatedBlockReference.canonicalBlock,
           wordChords,
+          (sourceTokenKey) =>
+            getRepeatedBlockSourceChord(
+              song,
+              sourceTokenKey,
+              wordChords,
+              new Set(visitedTokenKeys),
+            ),
         );
         return repeatedChordMap[tokenKey] || "";
       };
 
       const getEffectiveWordChord = (song, lineIndex, tokenIndex) => {
         const tokenKey = getTokenKey(lineIndex, tokenIndex);
-        if (hasOwnWordChord(song.wordChords, tokenKey))
-          return song.wordChords[tokenKey] || "";
-        const canonicalReference = getCanonicalRepetitionBlockReference(
+        const repeatedBlockReference = getTokenRepeatedBlockReference(
           song,
           tokenKey,
         );
-        if (!canonicalReference) return "";
-        if (canonicalReference.isRepeatedBlock)
+        if (repeatedBlockReference) {
           return getInheritedRepeatedBlockChord(song, tokenKey);
-        return song.wordChords?.[canonicalReference.canonicalTokenKey] || "";
+        }
+
+        const canonicalTokenKey = getCanonicalRepetitionTokenKey(song, tokenKey);
+        return song.wordChords?.[canonicalTokenKey] || "";
       };
+
+      const getEditableChordTokenKey = (song, tokenKey) =>
+        getTokenRepeatedBlockReference(song, tokenKey)
+          ? getCanonicalRepetitionTokenKey(song, tokenKey)
+          : tokenKey;
 
       const syncRepeatedBlockChords = (song, blocks, wordChords) => {
         const nextWordChords = { ...(wordChords || {}) };
         const songWithBlocks = { ...song, repetitionBlocks: blocks };
 
-        blocks.forEach((block) => {
-          const sourceTokenKeys = getRepetitionBlockTokenKeys(
-            songWithBlocks,
-            block,
-          );
-          const firstCanonicalReference = sourceTokenKeys
-            .map((sourceTokenKey) =>
-              getCanonicalRepetitionBlockReference(
-                songWithBlocks,
-                sourceTokenKey,
-              ),
-            )
-            .find((reference) => reference?.isRepeatedBlock);
-          if (!firstCanonicalReference) return;
+        for (let pass = 0; pass < blocks.length; pass += 1) {
+          blocks.forEach((block) => {
+            const referencedIndex = getReferencedRepetitionBlockIndex(
+              blocks,
+              block,
+            );
+            if (referencedIndex === null) return;
 
-          const distributedChords = buildRepeatedBlockChordMap(
-            songWithBlocks,
-            block,
-            firstCanonicalReference.canonicalBlock,
-            nextWordChords,
-          );
+            const repeatedTokenKeys = getRepetitionBlockTokenKeys(song, block);
+            const distributedChords = buildRepeatedBlockChordMap(
+              song,
+              block,
+              blocks[referencedIndex],
+              nextWordChords,
+              (sourceTokenKey) =>
+                getRepeatedBlockSourceChord(
+                  song,
+                  sourceTokenKey,
+                  nextWordChords,
+                ),
+            );
 
-          sourceTokenKeys.forEach((sourceTokenKey) => {
-            if (hasOwnWordChord(nextWordChords, sourceTokenKey)) return;
-            if (!hasOwnWordChord(distributedChords, sourceTokenKey)) return;
-            nextWordChords[sourceTokenKey] = distributedChords[sourceTokenKey];
+            repeatedTokenKeys.forEach((repeatedTokenKey) => {
+              if (hasOwnWordChord(distributedChords, repeatedTokenKey)) {
+                nextWordChords[repeatedTokenKey] =
+                  distributedChords[repeatedTokenKey];
+              } else {
+                delete nextWordChords[repeatedTokenKey];
+              }
+            });
           });
         });
 
@@ -3558,6 +3527,12 @@
           return;
         }
 
+        song.wordChords = syncRepeatedBlockChords(
+          song,
+          song.repetitionBlocks || [],
+          song.wordChords || {},
+        );
+
         try {
           await updateDoc(doc(db, "songs", song.id), {
             wordChords: song.wordChords || {},
@@ -3584,7 +3559,16 @@
         const song = songsById.get(appState.activeSongId);
         if (!song || !selectedTokenKey) return;
         if (!song.wordChords) song.wordChords = {};
-        song.wordChords[selectedTokenKey] = buildChordLabel();
+        const editableTokenKey = getEditableChordTokenKey(
+          song,
+          selectedTokenKey,
+        );
+        song.wordChords[editableTokenKey] = buildChordLabel();
+        song.wordChords = syncRepeatedBlockChords(
+          song,
+          song.repetitionBlocks || [],
+          song.wordChords,
+        );
         closeChordEditorPanel();
         renderSongLyricsEditor(song);
         renderChordRoadmap(song);
@@ -3594,12 +3578,16 @@
         const song = songsById.get(appState.activeSongId);
         if (!song || !selectedTokenKey) return;
         if (song.wordChords) {
-          const hasInheritedChord = Boolean(getTokenRepeatedBlockReference(song, selectedTokenKey) && getInheritedRepeatedBlockChord(song, selectedTokenKey));
-          if (hasInheritedChord) {
-            song.wordChords[selectedTokenKey] = "";
-          } else {
-            delete song.wordChords[selectedTokenKey];
-          }
+          const editableTokenKey = getEditableChordTokenKey(
+            song,
+            selectedTokenKey,
+          );
+          delete song.wordChords[editableTokenKey];
+          song.wordChords = syncRepeatedBlockChords(
+            song,
+            song.repetitionBlocks || [],
+            song.wordChords,
+          );
         }
         closeChordEditorPanel();
         renderSongLyricsEditor(song);

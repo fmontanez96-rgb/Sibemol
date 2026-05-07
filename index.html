@@ -270,7 +270,7 @@
     >
       <article id="song-play-panel" class="song-play-panel" tabindex="0">
         <div class="song-play-header">
-          <div>
+          <div class="song-play-heading">
             <p id="song-play-artist" class="song-play-artist"></p>
             <h2 id="song-play-title"></h2>
           </div>
@@ -284,8 +284,8 @@
           </button>
         </div>
         <div class="song-play-meta">
-          <span id="song-play-section-label"></span>
-          <span id="song-play-counter"></span>
+          <span id="song-play-section-label" class="song-play-section-label" aria-hidden="true"></span>
+          <span id="song-play-counter" class="song-play-counter-badge"></span>
         </div>
         <div
           id="song-play-section"
@@ -1780,7 +1780,7 @@
         songPlayArtist.textContent = song.artist;
 
         if (!playbackSections.length) {
-          songPlaySectionLabel.textContent = "Sin secciones";
+          songPlaySectionLabel.textContent = "";
           songPlayCounter.textContent = "0 / 0";
           songPlaySection.innerHTML = "";
           applyPlaybackTypography([]);

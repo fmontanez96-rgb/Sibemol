@@ -817,3 +817,101 @@ body {
 .repetition-block-menu.hidden {
   display: none;
 }
+
+.detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.bulk-chords-panel {
+  width: min(760px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+}
+
+.bulk-chords-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+
+.bulk-chords-header h3 {
+  margin: 2px 0 0;
+}
+
+.bulk-chords-sequence-bar {
+  position: sticky;
+  top: -20px;
+  z-index: 2;
+  display: grid;
+  gap: 8px;
+  margin: 0 -20px 14px;
+  padding: 14px 20px;
+  border-top: 1px solid #f1f1f1;
+  border-bottom: 1px solid #e5e5e5;
+  background: #f8fbff;
+}
+
+.bulk-chords-sequence {
+  min-height: 44px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  border: 1px dashed #b9c9e8;
+  border-radius: 12px;
+  padding: 10px;
+  background: #fff;
+}
+
+.bulk-chords-sequence-empty {
+  color: #666;
+  font-size: 0.95rem;
+}
+
+.bulk-sequence-chord,
+.bulk-chord-option {
+  border: 1px solid #d6dce8;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #111;
+  padding: 8px 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.bulk-sequence-chord.removable {
+  border-color: #173cad;
+  color: #173cad;
+}
+
+.bulk-sequence-chord.removable:hover,
+.bulk-chord-option:hover {
+  background: #111;
+  border-color: #111;
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.bulk-chords-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.bulk-chord-option {
+  width: 100%;
+  border-radius: 10px;
+  padding: 10px 8px;
+}

@@ -115,6 +115,7 @@
         <div class="detail-actions">
           <button id="close-song-detail" class="close-song-detail" type="button" aria-label="Cerrar detalle">Volver</button>
           <button id="play-song-detail" class="play-song-detail" type="button" aria-label="Reproducir canción">▶️ PLAY</button>
+          <button id="open-bulk-chords" class="submit-song hidden" type="button">Agregar Masivo</button>
           <button id="save-song-chords" class="submit-song hidden" type="button">Guardar</button>
         </div>
         <h3 id="song-detail-title"></h3>
@@ -191,6 +192,27 @@
             <p>Cuando haya canciones cargadas, Sib mostrará una opción aquí.</p>
           </div>
           <button id="shuffle-remix-song" type="button" class="submit-song remix-shuffle-button">Mezclar ahora</button>
+        </div>
+      </article>
+    </section>
+
+    <section id="bulk-chords-modal" class="confirm-modal hidden" role="dialog" aria-modal="true" aria-labelledby="bulk-chords-title">
+      <article class="bulk-chords-panel">
+        <div class="bulk-chords-header">
+          <div>
+            <p class="remix-modal-kicker">Acordes</p>
+            <h3 id="bulk-chords-title">Agregar Masivo</h3>
+          </div>
+          <button id="close-bulk-chords" type="button" class="close-song-detail" aria-label="Cerrar agregar masivo">Volver</button>
+        </div>
+        <div class="bulk-chords-sequence-bar" aria-label="Seguidilla de acordes seleccionada">
+          <strong>Seguidilla de acordes</strong>
+          <div id="bulk-chords-sequence" class="bulk-chords-sequence">Sin acordes seleccionados</div>
+        </div>
+        <p class="detail-help">Haz click en los acordes para armar la seguidilla. Si clickeas el último acorde de la cadena, se borrará.</p>
+        <div id="bulk-chords-grid" class="bulk-chords-grid" aria-label="Todos los acordes naturales, bemoles y sostenidos en mayor y menor"></div>
+        <div class="confirm-actions">
+          <button id="apply-bulk-chords" type="button" class="submit-song">Agregar</button>
         </div>
       </article>
     </section>
@@ -291,7 +313,13 @@
       const chordQualitySelect = document.getElementById("chord-quality-select");
       const chordAccidentalSelect = document.getElementById("chord-accidental-select");
       const saveTokenChordButton = document.getElementById("save-token-chord");
+      const openBulkChordsButton = document.getElementById("open-bulk-chords");
       const saveSongChordsButton = document.getElementById("save-song-chords");
+      const bulkChordsModal = document.getElementById("bulk-chords-modal");
+      const closeBulkChordsButton = document.getElementById("close-bulk-chords");
+      const bulkChordsSequence = document.getElementById("bulk-chords-sequence");
+      const bulkChordsGrid = document.getElementById("bulk-chords-grid");
+      const applyBulkChordsButton = document.getElementById("apply-bulk-chords");
       const contextMenu = document.getElementById("song-context-menu");
       const deleteSongModal = document.getElementById("delete-song-modal");
       const deleteSongText = document.getElementById("delete-song-text");
@@ -332,6 +360,7 @@
       let repetitionBlockPendingEditIndex = null;
       let repetitionBlockPendingRepeatSourceIndex = null;
       let selectedPerformer = null;
+      let bulkChordSequence = [];
 
       const naturalRoots = ["Do", "Re", "Mi", "Fa", "Sol", "La", "Si"];
       const accidentalOptions = [
@@ -365,12 +394,94 @@
       };
 
 
+      const getAllChordLabels = () => naturalRoots.flatMap((root) =>
+        accidentalOptions.flatMap((accidental) =>
+          qualityOptions.map((quality) => `${root}${accidental.value}${quality.value}`)
+        )
+      );
+
+      const renderBulkChordSequence = () => {
+        bulkChordsSequence.innerHTML = "";
+        if (!bulkChordSequence.length) {
+          bulkChordsSequence.textContent = "Sin acordes seleccionados";
+          bulkChordsSequence.classList.add("bulk-chords-sequence-empty");
+          return;
+        }
+
+        bulkChordsSequence.classList.remove("bulk-chords-sequence-empty");
+        bulkChordSequence.forEach((chord, index) => {
+          const chordButton = document.createElement("button");
+          chordButton.type = "button";
+          chordButton.className = "bulk-sequence-chord";
+          chordButton.textContent = chord;
+          chordButton.setAttribute("aria-label", index === bulkChordSequence.length - 1 ? `Borrar ${chord}` : chord);
+          if (index === bulkChordSequence.length - 1) {
+            chordButton.classList.add("removable");
+            chordButton.addEventListener("click", () => {
+              bulkChordSequence.pop();
+              renderBulkChordSequence();
+            });
+          }
+          bulkChordsSequence.appendChild(chordButton);
+        });
+      };
+
+      const renderBulkChordGrid = () => {
+        bulkChordsGrid.innerHTML = "";
+        getAllChordLabels().forEach((chord) => {
+          const chordButton = document.createElement("button");
+          chordButton.type = "button";
+          chordButton.className = "bulk-chord-option";
+          chordButton.textContent = chord;
+          chordButton.addEventListener("click", () => {
+            bulkChordSequence.push(chord);
+            renderBulkChordSequence();
+          });
+          bulkChordsGrid.appendChild(chordButton);
+        });
+      };
+
+      const openBulkChordsModal = () => {
+        bulkChordSequence = [];
+        renderBulkChordSequence();
+        renderBulkChordGrid();
+        bulkChordsModal.classList.remove("hidden");
+      };
+
+      const closeBulkChordsModal = () => {
+        bulkChordsModal.classList.add("hidden");
+      };
+
+      const applyBulkChordsToFirstWords = () => {
+        const song = songsById.get(appState.activeSongId);
+        if (!song || !bulkChordSequence.length) return;
+
+        const lines = tokenizeLyrics(song.lyrics);
+        let chordIndex = 0;
+        if (!song.wordChords) song.wordChords = {};
+
+        lines.forEach((tokens, lineIndex) => {
+          tokens.forEach((token, tokenIndex) => {
+            if (chordIndex >= bulkChordSequence.length) return;
+            const tokenKey = getTokenKey(lineIndex, tokenIndex);
+            const canonicalTokenKey = getCanonicalRepetitionTokenKey(song, tokenKey);
+            song.wordChords[canonicalTokenKey] = bulkChordSequence[chordIndex];
+            chordIndex += 1;
+          });
+        });
+
+        song.wordChords = syncRepeatedBlockChords(song, song.repetitionBlocks || [], song.wordChords);
+        renderSongLyricsEditor(song);
+        closeBulkChordsModal();
+      };
+
       const renderChordPalette = () => {
         fillChordSelectors();
         chordRootSelect.selectedIndex = 0;
         chordQualitySelect.selectedIndex = 0;
         chordAccidentalSelect.selectedIndex = 0;
         chordEditorPanel.classList.add("hidden");
+        closeBulkChordsModal();
       };
 
       const positionChordEditorNearToken = () => {
@@ -1077,6 +1188,7 @@
         const isChordMode = mode === "chords";
         songDetailChordWorkspace.classList.toggle("hidden", !isChordMode);
         songDetailLyrics.classList.toggle("hidden", isChordMode);
+        openBulkChordsButton.classList.toggle("hidden", !isChordMode);
         saveSongChordsButton.classList.toggle("hidden", !isChordMode);
         playSongDetailButton.classList.toggle("hidden", isChordMode);
 
@@ -1095,6 +1207,7 @@
         selectedTokenKey = null;
         selectedTokenElement = null;
         chordEditorPanel.classList.add("hidden");
+        closeBulkChordsModal();
       };
 
       const renderSongs = () => {
@@ -1340,6 +1453,7 @@
       songDetailModal.addEventListener("click", (event) => { if (event.target === songDetailModal) closeSongDetail(); });
       organizeRemixModal.addEventListener("click", (event) => { if (event.target === organizeRemixModal) closeRemixModal("organize"); });
       randomRemixModal.addEventListener("click", (event) => { if (event.target === randomRemixModal) closeRemixModal("random"); });
+      bulkChordsModal.addEventListener("click", (event) => { if (event.target === bulkChordsModal) closeBulkChordsModal(); });
       deleteSongModal.addEventListener("click", (event) => { if (event.target === deleteSongModal) closeDeleteSongModal(); });
       deleteRepetitionBlockModal.addEventListener("click", (event) => { if (event.target === deleteRepetitionBlockModal) closeDeleteRepetitionBlockModal(); });
       repetitionRepeatPicker.addEventListener("click", (event) => { if (event.target === repetitionRepeatPicker) closeRepetitionRepeatPicker(); });
@@ -1443,6 +1557,10 @@
           alert("No se pudieron guardar los acordes. Inténtalo de nuevo.");
         }
       };
+
+      openBulkChordsButton.addEventListener("click", openBulkChordsModal);
+      closeBulkChordsButton.addEventListener("click", closeBulkChordsModal);
+      applyBulkChordsButton.addEventListener("click", applyBulkChordsToFirstWords);
 
       saveSongChordsButton.addEventListener("click", () => {
         saveSongWordChords();

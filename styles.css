@@ -444,33 +444,6 @@ body {
   gap: 4px;
 }
 
-.repetition-token.in-repetition-block {
-  background: #e5e5e5;
-  border: 1px solid #cfcfcf;
-  border-radius: 6px;
-  padding: 4px 8px;
-}
-
-.repetition-token.in-repetition-block.active {
-  border-color: #111111;
-  box-shadow: 0 0 0 2px rgba(17, 17, 17, 0.12);
-}
-
-.repetition-token.in-repetition-block.linked {
-  background: #eeeeee;
-  border-style: dashed;
-}
-
-.repetition-token.in-repetition-block.block-start {
-  border-top-left-radius: 10px;
-  border-bottom-left-radius: 10px;
-}
-
-.repetition-token.in-repetition-block.block-end {
-  border-top-right-radius: 10px;
-  border-bottom-right-radius: 10px;
-}
-
 .token-chord {
   min-height: 16px;
   font-size: 0.8rem;

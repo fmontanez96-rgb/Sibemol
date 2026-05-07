@@ -629,25 +629,18 @@ body {
 
 .roadmap-section-header {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.roadmap-section-chords {
+  line-height: 1.35;
 }
 
 .roadmap-section p {
   margin: 0;
   line-height: 1.35;
-}
-
-.roadmap-repeat {
-  flex: 0 0 auto;
-  border-radius: 999px;
-  background: #111;
-  color: #fff;
-  padding: 3px 8px;
-  font-size: 0.78rem;
-  font-weight: 700;
 }
 
 .roadmap-section-introduccion {

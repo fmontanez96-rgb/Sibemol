@@ -569,8 +569,7 @@
         return currentIndex >= startIndex && currentIndex <= endIndex;
       };
       const getTokenSectionType = (song, lineIndex, tokenIndex) => {
-        const sections = song.sections || [];
-        const found = sections.find((range) => isTokenInSectionRange(lineIndex, tokenIndex, range));
+        const found = getEffectiveSections(song).find((range) => isTokenInSectionRange(lineIndex, tokenIndex, range));
         return found?.type || "";
       };
 
@@ -588,6 +587,39 @@
         const startA = sectionTokenIndex(sectionA.start.line, sectionA.start.token);
         const startB = sectionTokenIndex(sectionB.start.line, sectionB.start.token);
         return startA - startB;
+      };
+
+      const hasValidSectionRange = (section) => (
+        section?.start
+        && section?.end
+        && Number.isInteger(section.start.line)
+        && Number.isInteger(section.start.token)
+        && Number.isInteger(section.end.line)
+        && Number.isInteger(section.end.token)
+      );
+
+      const doSectionRangesOverlap = (sectionA, sectionB) => {
+        if (!hasValidSectionRange(sectionA) || !hasValidSectionRange(sectionB)) return false;
+        const startA = sectionTokenIndex(sectionA.start.line, sectionA.start.token);
+        const endA = sectionTokenIndex(sectionA.end.line, sectionA.end.token);
+        const startB = sectionTokenIndex(sectionB.start.line, sectionB.start.token);
+        const endB = sectionTokenIndex(sectionB.end.line, sectionB.end.token);
+        return startA <= endB && startB <= endA;
+      };
+
+      const getEffectiveSections = (song) => {
+        const effectiveSections = [];
+
+        (song.sections || [])
+          .filter((section) => hasValidSectionRange(section) && section.type)
+          .forEach((section) => {
+            const previousNonOverlappingSections = effectiveSections.filter((existingSection) => (
+              !doSectionRangesOverlap(existingSection, section)
+            ));
+            effectiveSections.splice(0, effectiveSections.length, ...previousNonOverlappingSections, section);
+          });
+
+        return effectiveSections.sort(compareSectionRanges);
       };
 
       const getSectionChordSequence = (song, section) => {
@@ -614,9 +646,7 @@
       };
 
       const buildChordRoadmapItems = (song) => {
-        const sectionItems = [...(song.sections || [])]
-          .filter((section) => section.start && section.end && section.type)
-          .sort(compareSectionRanges)
+        const sectionItems = getEffectiveSections(song)
           .map((section) => ({
             type: section.type,
             label: formatSectionName(section.type),
@@ -752,7 +782,11 @@
       const applySectionType = async (type) => {
         const song = songsById.get(activeSectionsSongId);
         if (!song || !sectionSelectionStart || !sectionSelectionEnd) return;
-        const nextSections = [...(song.sections || []), { start: sectionSelectionStart, end: sectionSelectionEnd, type }];
+        const selectedSection = { start: sectionSelectionStart, end: sectionSelectionEnd, type };
+        const nextSections = getEffectiveSections(song)
+          .filter((section) => !doSectionRangesOverlap(section, selectedSection))
+          .concat(selectedSection)
+          .sort(compareSectionRanges);
         sectionSelectionStart = null;
         sectionSelectionEnd = null;
         sectionsTypePicker.classList.add("hidden");

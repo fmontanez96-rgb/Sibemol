@@ -102,6 +102,7 @@
       <article class="song-detail-panel">
         <div class="detail-actions">
           <button id="close-song-detail" class="close-song-detail" type="button" aria-label="Cerrar detalle">Volver</button>
+          <button id="play-song-detail" class="play-song-detail" type="button" aria-label="Reproducir canción">▶️ PLAY</button>
           <button id="save-song-chords" class="submit-song hidden" type="button">Guardar</button>
         </div>
         <h3 id="song-detail-title"></h3>
@@ -190,6 +191,7 @@
       const screenPanels = document.querySelectorAll(".screen-panel");
       const songDetailModal = document.getElementById("song-detail-modal");
       const closeSongDetailButton = document.getElementById("close-song-detail");
+      const playSongDetailButton = document.getElementById("play-song-detail");
       const songDetailTitle = document.getElementById("song-detail-title");
       const songDetailArtist = document.getElementById("song-detail-artist");
       const songDetailLyrics = document.getElementById("song-detail-lyrics");
@@ -551,6 +553,7 @@
         songDetailChordWorkspace.classList.toggle("hidden", !isChordMode);
         songDetailLyrics.classList.toggle("hidden", isChordMode);
         saveSongChordsButton.classList.toggle("hidden", !isChordMode);
+        playSongDetailButton.classList.toggle("hidden", isChordMode);
 
         if (isChordMode) {
           selectedTokenKey = null;

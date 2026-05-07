@@ -918,6 +918,42 @@
         }, []);
       };
 
+      const clampNumber = (value, min, max) => Math.max(min, Math.min(max, value));
+
+      const getPlaybackTypography = (sectionLines) => {
+        const isMobilePlayback = window.matchMedia("(max-width: 760px)").matches;
+        const lineCount = Math.max(sectionLines.length, 1);
+        const longestLyricsLine = Math.max(...sectionLines.map(({ words }) => words.join(" ").length), 1);
+        const mostChordsInLine = Math.max(...sectionLines.map(({ chords }) => chords.length), 1);
+        const lyricLineFactor = isMobilePlayback ? 8.2 : 10.8;
+        const lyricWidthFactor = isMobilePlayback ? 45 : 78;
+        const lyricMax = isMobilePlayback ? 2.35 : 3.1;
+        const lyricMin = isMobilePlayback ? 0.72 : 0.95;
+        const chordLineFactor = isMobilePlayback ? 7 : 12;
+        const chordMax = isMobilePlayback ? 1.2 : 1.7;
+        const chordMin = isMobilePlayback ? 0.62 : 0.82;
+        const lyricsRem = clampNumber(
+          Math.min(lyricMax, lyricLineFactor / lineCount, lyricWidthFactor / longestLyricsLine),
+          lyricMin,
+          lyricMax
+        );
+        const chordsRem = clampNumber(
+          Math.min(chordMax, chordLineFactor / mostChordsInLine, lyricsRem * 0.58),
+          chordMin,
+          chordMax
+        );
+        const gapPx = clampNumber(Math.round(lyricsRem * (isMobilePlayback ? 3.5 : 5)), isMobilePlayback ? 3 : 5, isMobilePlayback ? 9 : 16);
+
+        return { lyricsRem, chordsRem, gapPx };
+      };
+
+      const applyPlaybackTypography = (sectionLines) => {
+        const { lyricsRem, chordsRem, gapPx } = getPlaybackTypography(sectionLines);
+        songPlayPanel.style.setProperty("--play-lyrics-font-size", `${lyricsRem.toFixed(2)}rem`);
+        songPlayPanel.style.setProperty("--play-chords-font-size", `${chordsRem.toFixed(2)}rem`);
+        songPlayPanel.style.setProperty("--play-lines-gap", `${gapPx}px`);
+      };
+
       const renderPlaybackSection = () => {
         const song = songsById.get(playbackSongId);
         const section = playbackSections[playbackSectionIndex];
@@ -955,6 +991,7 @@
         chordsColumn.append(chordsTitle, chordsBody);
 
         const sectionLines = getPlaybackSectionLines(song, section);
+        applyPlaybackTypography(sectionLines);
         if (!sectionLines.length) {
           const emptyText = document.createElement("p");
           emptyText.className = "song-play-empty";
@@ -1018,6 +1055,7 @@
           songPlaySectionLabel.textContent = "Sin secciones";
           songPlayCounter.textContent = "0 / 0";
           songPlaySection.innerHTML = "";
+          applyPlaybackTypography([]);
           const emptyText = document.createElement("p");
           emptyText.className = "song-play-empty";
           emptyText.textContent = "Esta canción no tiene letra disponible para reproducir.";
@@ -1769,6 +1807,12 @@
       closeSongDetailButton.addEventListener("click", closeSongDetail);
       playSongDetailButton.addEventListener("click", openSongPlayback);
       closeSongPlayButton.addEventListener("click", closeSongPlayback);
+      window.addEventListener("resize", () => {
+        if (!songPlayModal.classList.contains("hidden")) renderPlaybackSection();
+      });
+      document.addEventListener("fullscreenchange", () => {
+        if (!songPlayModal.classList.contains("hidden")) renderPlaybackSection();
+      });
       cancelDeleteSongButton.addEventListener("click", closeDeleteSongModal);
       confirmDeleteSongButton.addEventListener("click", () => {
         if (!songPendingDeleteId) return;

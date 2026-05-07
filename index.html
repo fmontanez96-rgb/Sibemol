@@ -1170,13 +1170,93 @@
       };
 
       const repetitionColors = [
-        { background: "#e8ddff", text: "#321267" },
-        { background: "#d7f7e5", text: "#0f5132" },
-        { background: "#ffe3c2", text: "#663c00" },
-        { background: "#d9f0ff", text: "#08415c" },
-        { background: "#ffd9e6", text: "#64113f" },
-        { background: "#fff6b8", text: "#554600" },
+        "#e8ddff",
+        "#d7f7e5",
+        "#ffe3c2",
+        "#d9f0ff",
+        "#ffd9e6",
+        "#fff6b8",
       ];
+
+      const getRelativeLuminance = ({ red, green, blue }) => {
+        const normalize = (component) => {
+          const channel = component / 255;
+          return channel <= 0.03928
+            ? channel / 12.92
+            : ((channel + 0.055) / 1.055) ** 2.4;
+        };
+        return (
+          0.2126 * normalize(red) +
+          0.7152 * normalize(green) +
+          0.0722 * normalize(blue)
+        );
+      };
+
+      const getContrastingTextColor = (rgbColor) =>
+        getRelativeLuminance(rgbColor) > 0.52 ? "#1f2937" : "#ffffff";
+
+      const hexToRgb = (hexColor) => {
+        const normalizedHex = hexColor.replace("#", "");
+        return {
+          red: Number.parseInt(normalizedHex.slice(0, 2), 16),
+          green: Number.parseInt(normalizedHex.slice(2, 4), 16),
+          blue: Number.parseInt(normalizedHex.slice(4, 6), 16),
+        };
+      };
+
+      const hslToRgb = (hue, saturation, lightness) => {
+        const normalizedSaturation = saturation / 100;
+        const normalizedLightness = lightness / 100;
+        const chroma =
+          (1 - Math.abs(2 * normalizedLightness - 1)) * normalizedSaturation;
+        const huePrime = hue / 60;
+        const x = chroma * (1 - Math.abs((huePrime % 2) - 1));
+        const match = normalizedLightness - chroma / 2;
+        let red = 0;
+        let green = 0;
+        let blue = 0;
+
+        if (huePrime >= 0 && huePrime < 1) {
+          red = chroma;
+          green = x;
+        } else if (huePrime < 2) {
+          red = x;
+          green = chroma;
+        } else if (huePrime < 3) {
+          green = chroma;
+          blue = x;
+        } else if (huePrime < 4) {
+          green = x;
+          blue = chroma;
+        } else if (huePrime < 5) {
+          red = x;
+          blue = chroma;
+        } else {
+          red = chroma;
+          blue = x;
+        }
+
+        return {
+          red: Math.round((red + match) * 255),
+          green: Math.round((green + match) * 255),
+          blue: Math.round((blue + match) * 255),
+        };
+      };
+
+      const getCanonicalRepetitionBackgroundColor = (canonicalIndex) => {
+        if (canonicalIndex < repetitionColors.length) {
+          const background = repetitionColors[canonicalIndex];
+          return { background, rgb: hexToRgb(background) };
+        }
+
+        const hue = (canonicalIndex * 137.508) % 360;
+        const saturation = 78;
+        const lightness = 86;
+        return {
+          background: `hsl(${hue.toFixed(3)}, ${saturation}%, ${lightness}%)`,
+          rgb: hslToRgb(hue, saturation, lightness),
+        };
+      };
 
       const sectionTokenIndex = (lineIndex, tokenIndex) =>
         lineIndex * 10000 + tokenIndex;
@@ -2249,7 +2329,11 @@
 
       const getRepetitionBlockColors = (song, block) => {
         const colorIndex = resolveRepetitionColorIndex(song, block);
-        return repetitionColors[colorIndex % repetitionColors.length];
+        const colors = getCanonicalRepetitionBackgroundColor(colorIndex);
+        return {
+          background: colors.background,
+          text: getContrastingTextColor(colors.rgb),
+        };
       };
 
       const closeRepetitionBlockMenu = () => {

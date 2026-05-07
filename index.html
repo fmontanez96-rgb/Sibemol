@@ -1983,6 +1983,55 @@
         return null;
       };
 
+      const doesRepetitionBlockDependOn = (
+        blocks,
+        startIndex,
+        dependencyIndex,
+      ) => {
+        const visitedIndexes = new Set();
+        let currentIndex = startIndex;
+
+        while (
+          Number.isInteger(currentIndex) &&
+          currentIndex >= 0 &&
+          currentIndex < blocks.length &&
+          !visitedIndexes.has(currentIndex)
+        ) {
+          visitedIndexes.add(currentIndex);
+          const referencedIndex = getReferencedRepetitionBlockIndex(
+            blocks,
+            blocks[currentIndex],
+          );
+          if (referencedIndex === null) return false;
+          if (referencedIndex === dependencyIndex) return true;
+          currentIndex = referencedIndex;
+        }
+
+        return false;
+      };
+
+      const getCanonicalRepetitionBlockIndex = (blocks, blockIndex) => {
+        const visitedIndexes = new Set();
+        let currentIndex = blockIndex;
+
+        while (
+          Number.isInteger(currentIndex) &&
+          currentIndex >= 0 &&
+          currentIndex < blocks.length &&
+          !visitedIndexes.has(currentIndex)
+        ) {
+          visitedIndexes.add(currentIndex);
+          const referencedIndex = getReferencedRepetitionBlockIndex(
+            blocks,
+            blocks[currentIndex],
+          );
+          if (referencedIndex === null) return currentIndex;
+          currentIndex = referencedIndex;
+        }
+
+        return null;
+      };
+
       const mapTokenKeyBetweenRepetitionBlocks = (
         song,
         sourceBlock,
@@ -2058,44 +2107,68 @@
         );
       };
 
-      const getCanonicalRepetitionTokenKey = (song, tokenKey) => {
-        const { line, token } = parseTokenKey(tokenKey);
-        const blocks = song.repetitionBlocks || [];
-        let currentBlock = getTokenRepetitionBlock(song, line, token);
-        let currentTokenKey = tokenKey;
-        const visitedBlocks = new Set();
-
-        while (currentBlock && !visitedBlocks.has(currentBlock)) {
-          visitedBlocks.add(currentBlock);
-          const referencedIndex = getReferencedRepetitionBlockIndex(
-            blocks,
-            currentBlock,
-          );
-          if (referencedIndex === null) break;
-          const referencedBlock = blocks[referencedIndex];
-          const mappedTokenKey = mapTokenKeyBetweenRepetitionBlocks(
-            song,
-            currentBlock,
-            referencedBlock,
-            currentTokenKey,
-          );
-          if (!mappedTokenKey) break;
-          currentBlock = referencedBlock;
-          currentTokenKey = mappedTokenKey;
-        }
-
-        return currentTokenKey;
-      };
-
-      const getTokenRepeatedBlockReference = (song, tokenKey) => {
+      const getCanonicalRepetitionBlockReference = (song, tokenKey) => {
         const { line, token } = parseTokenKey(tokenKey);
         const blocks = song.repetitionBlocks || [];
         const currentBlock = getTokenRepetitionBlock(song, line, token);
-        const referencedIndex = currentBlock
-          ? getReferencedRepetitionBlockIndex(blocks, currentBlock)
-          : null;
-        if (referencedIndex === null) return null;
-        return { currentBlock, referencedBlock: blocks[referencedIndex] };
+        if (!currentBlock) return null;
+
+        let canonicalBlock = currentBlock;
+        let canonicalTokenKey = tokenKey;
+        const visitedBlocks = new Set();
+
+        while (canonicalBlock) {
+          const currentIndex = blocks.indexOf(canonicalBlock);
+          const currentKey = canonicalBlock.id || currentIndex;
+          if (visitedBlocks.has(currentKey)) break;
+          visitedBlocks.add(currentKey);
+
+          const referencedIndex = getReferencedRepetitionBlockIndex(
+            blocks,
+            canonicalBlock,
+          );
+          if (referencedIndex === null) break;
+
+          const referencedBlock = blocks[referencedIndex];
+          const referencedKey = referencedBlock?.id || referencedIndex;
+          if (!referencedBlock || visitedBlocks.has(referencedKey)) break;
+
+          const mappedTokenKey = mapTokenKeyBetweenRepetitionBlocks(
+            song,
+            canonicalBlock,
+            referencedBlock,
+            canonicalTokenKey,
+          );
+          if (!mappedTokenKey) break;
+
+          canonicalBlock = referencedBlock;
+          canonicalTokenKey = mappedTokenKey;
+        }
+
+        return {
+          currentBlock,
+          canonicalBlock,
+          canonicalTokenKey,
+          isRepeatedBlock: currentBlock !== canonicalBlock,
+        };
+      };
+
+      const getCanonicalRepetitionTokenKey = (song, tokenKey) =>
+        getCanonicalRepetitionBlockReference(song, tokenKey)
+          ?.canonicalTokenKey || tokenKey;
+
+      const getTokenRepeatedBlockReference = (song, tokenKey) => {
+        const canonicalReference = getCanonicalRepetitionBlockReference(
+          song,
+          tokenKey,
+        );
+        if (!canonicalReference?.isRepeatedBlock) return null;
+        return {
+          currentBlock: canonicalReference.currentBlock,
+          referencedBlock: canonicalReference.canonicalBlock,
+          canonicalBlock: canonicalReference.canonicalBlock,
+          canonicalTokenKey: canonicalReference.canonicalTokenKey,
+        };
       };
 
       const getRepeatedBlockSourceChord = (
@@ -2135,7 +2208,7 @@
         const repeatedChordMap = buildRepeatedBlockChordMap(
           song,
           repeatedBlockReference.currentBlock,
-          repeatedBlockReference.referencedBlock,
+          repeatedBlockReference.canonicalBlock,
           wordChords,
           (sourceTokenKey) =>
             getRepeatedBlockSourceChord(
@@ -2169,6 +2242,7 @@
 
       const syncRepeatedBlockChords = (song, blocks, wordChords) => {
         const nextWordChords = { ...(wordChords || {}) };
+        const songWithBlocks = { ...song, repetitionBlocks: blocks };
 
         for (let pass = 0; pass < blocks.length; pass += 1) {
           blocks.forEach((block) => {
@@ -2201,7 +2275,7 @@
               }
             });
           });
-        }
+        });
 
         return nextWordChords;
       };
@@ -2549,6 +2623,14 @@
           option.textContent = getRepetitionBlockLabel(song, block);
           option.style.backgroundColor = colors.background;
           option.style.color = colors.text;
+          const wouldCreateCycle = doesRepetitionBlockDependOn(
+            blocks,
+            index,
+            sourceIndex,
+          );
+          option.disabled = wouldCreateCycle;
+          if (wouldCreateCycle)
+            option.title = "Este bloque ya depende del bloque actual.";
           option.addEventListener("click", () =>
             saveRepetitionRepeatTarget(index),
           );
@@ -2572,10 +2654,32 @@
         const nextBlocks = (song.repetitionBlocks || []).map(
           normalizeRepetitionBlock,
         );
+        if (
+          sourceIndex === targetIndex ||
+          doesRepetitionBlockDependOn(nextBlocks, targetIndex, sourceIndex)
+        ) {
+          alert("No se puede crear una repetición circular entre bloques.");
+          closeRepetitionRepeatPicker();
+          return;
+        }
+
+        const canonicalTargetIndex = getCanonicalRepetitionBlockIndex(
+          nextBlocks,
+          targetIndex,
+        );
+        if (
+          canonicalTargetIndex === null ||
+          canonicalTargetIndex === sourceIndex
+        ) {
+          alert("No se pudo resolver el bloque canónico de repetición.");
+          closeRepetitionRepeatPicker();
+          return;
+        }
+
         nextBlocks[sourceIndex] = {
           ...nextBlocks[sourceIndex],
-          repeatsBlockIndex: targetIndex,
-          repeatsBlockId: nextBlocks[targetIndex]?.id,
+          repeatsBlockIndex: canonicalTargetIndex,
+          repeatsBlockId: nextBlocks[canonicalTargetIndex]?.id,
         };
         const nextWordChords = syncRepeatedBlockChords(
           song,

@@ -608,7 +608,10 @@
         return chords;
       };
 
-      const getRoadmapSignature = (roadmapItem) => `${roadmapItem.type}|${roadmapItem.chords.join("-")}`;
+      const findFirstChordSequenceForSectionType = (sectionItems, sectionType) => {
+        const sectionWithChords = sectionItems.find((item) => item.type === sectionType && item.chords.length);
+        return sectionWithChords?.chords || [];
+      };
 
       const buildChordRoadmapItems = (song) => {
         const sectionItems = [...(song.sections || [])]
@@ -617,19 +620,21 @@
           .map((section) => ({
             type: section.type,
             label: formatSectionName(section.type),
-            chords: getSectionChordSequence(song, section),
-            repeatCount: 1
+            chords: getSectionChordSequence(song, section)
           }));
 
-        return sectionItems.reduce((items, sectionItem) => {
-          const previousItem = items[items.length - 1];
-          if (previousItem && getRoadmapSignature(previousItem) === getRoadmapSignature(sectionItem)) {
-            previousItem.repeatCount += 1;
-            return items;
-          }
-          items.push(sectionItem);
-          return items;
-        }, []);
+        const alreadyShownSectionTypes = new Set();
+        return sectionItems.map((sectionItem) => {
+          const isFirstAppearance = !alreadyShownSectionTypes.has(sectionItem.type);
+          alreadyShownSectionTypes.add(sectionItem.type);
+          return {
+            ...sectionItem,
+            chords: isFirstAppearance
+              ? findFirstChordSequenceForSectionType(sectionItems, sectionItem.type)
+              : [],
+            showChords: isFirstAppearance
+          };
+        });
       };
 
       const renderChordRoadmap = (song) => {
@@ -657,21 +662,17 @@
           header.className = "roadmap-section-header";
 
           const label = document.createElement("strong");
-          label.textContent = item.label;
+          label.textContent = item.showChords ? `${item.label}:` : item.label;
           header.appendChild(label);
 
-          if (item.repeatCount > 1) {
-            const repeatBadge = document.createElement("span");
-            repeatBadge.className = "roadmap-repeat";
-            repeatBadge.textContent = `X${item.repeatCount}`;
-            header.appendChild(repeatBadge);
+          if (item.showChords) {
+            const chordLine = document.createElement("span");
+            chordLine.className = "roadmap-section-chords";
+            chordLine.textContent = item.chords.length ? item.chords.join(" - ") : "Sin acordes asignados";
+            header.appendChild(chordLine);
           }
 
-          const chordLine = document.createElement("p");
-          chordLine.textContent = item.chords.length ? item.chords.join(" - ") : "Sin acordes asignados";
-
           listItem.appendChild(header);
-          listItem.appendChild(chordLine);
           list.appendChild(listItem);
         });
         songChordRoadmap.appendChild(list);

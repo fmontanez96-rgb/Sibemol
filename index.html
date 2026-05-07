@@ -473,6 +473,8 @@
         )
       );
 
+      const hasOwnWordChord = (wordChords, tokenKey) => Object.prototype.hasOwnProperty.call(wordChords || {}, tokenKey);
+
       const renderBulkChordSequence = () => {
         bulkChordsSequence.innerHTML = "";
         if (!bulkChordSequence.length) {
@@ -537,13 +539,11 @@
           tokens.forEach((token, tokenIndex) => {
             if (chordIndex >= bulkChordSequence.length) return;
             const tokenKey = getTokenKey(lineIndex, tokenIndex);
-            const canonicalTokenKey = getCanonicalRepetitionTokenKey(song, tokenKey);
-            song.wordChords[canonicalTokenKey] = bulkChordSequence[chordIndex];
+            song.wordChords[tokenKey] = bulkChordSequence[chordIndex];
             chordIndex += 1;
           });
         });
 
-        song.wordChords = syncRepeatedBlockChords(song, song.repetitionBlocks || [], song.wordChords);
         renderSongLyricsEditor(song);
         closeBulkChordsModal();
       };
@@ -584,16 +584,17 @@
         if (!song || !sourceTokenKey || !targetTokenKey || sourceTokenKey === targetTokenKey) return;
         if (!song.wordChords) song.wordChords = {};
 
+        const sourceHasOwnChord = hasOwnWordChord(song.wordChords, sourceTokenKey);
         const sourceCanonicalTokenKey = getCanonicalRepetitionTokenKey(song, sourceTokenKey);
-        const targetCanonicalTokenKey = getCanonicalRepetitionTokenKey(song, targetTokenKey);
-        const movingChord = chord || song.wordChords[sourceCanonicalTokenKey] || song.wordChords[sourceTokenKey];
-        if (!movingChord || sourceCanonicalTokenKey === targetCanonicalTokenKey) return;
+        const movingChord = chord || song.wordChords[sourceTokenKey] || song.wordChords[sourceCanonicalTokenKey];
+        if (!movingChord) return;
 
-        delete song.wordChords[sourceCanonicalTokenKey];
-        delete song.wordChords[sourceTokenKey];
-        song.wordChords[targetCanonicalTokenKey] = movingChord;
-        song.wordChords = syncRepeatedBlockChords(song, song.repetitionBlocks || [], song.wordChords);
-        song.wordChords[targetCanonicalTokenKey] = movingChord;
+        if (sourceHasOwnChord) {
+          delete song.wordChords[sourceTokenKey];
+        } else {
+          song.wordChords[sourceTokenKey] = "";
+        }
+        song.wordChords[targetTokenKey] = movingChord;
         selectedTokenKey = targetTokenKey;
         selectedTokenElement = null;
         chordEditorPanel.classList.add("hidden");
@@ -1174,7 +1175,8 @@
       const getEffectiveWordChord = (song, lineIndex, tokenIndex) => {
         const tokenKey = getTokenKey(lineIndex, tokenIndex);
         const canonicalTokenKey = getCanonicalRepetitionTokenKey(song, tokenKey);
-        return song.wordChords?.[canonicalTokenKey] || song.wordChords?.[tokenKey] || "";
+        if (hasOwnWordChord(song.wordChords, tokenKey)) return song.wordChords[tokenKey] || "";
+        return song.wordChords?.[canonicalTokenKey] || "";
       };
 
       const syncRepeatedBlockChords = (song, blocks, wordChords) => {
@@ -1872,11 +1874,8 @@
         }
 
         try {
-          const nextBlocks = (song.repetitionBlocks || []).map(normalizeRepetitionBlock);
-          const nextWordChords = syncRepeatedBlockChords(song, nextBlocks, song.wordChords || {});
-          song.wordChords = nextWordChords;
           await updateDoc(doc(db, "songs", song.id), {
-            wordChords: nextWordChords
+            wordChords: song.wordChords || {}
           });
           alert("Acordes guardados correctamente.");
         } catch (error) {

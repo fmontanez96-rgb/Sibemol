@@ -2005,7 +2005,7 @@
 
       const getRepetitionBlockChordSequence = (tokenKeys, wordChords) =>
         tokenKeys.flatMap((tokenKey) =>
-          normalizeChordList(wordChords?.[tokenKey]),
+          normalizeChordList(resolveChord(tokenKey)),
         );
 
       const distributeChordSequenceToFirstTokens = (chords, tokenKeys) => {
@@ -2032,6 +2032,7 @@
         repeatedBlock,
         referencedBlock,
         wordChords,
+        resolveChord,
       ) => {
         const referencedTokenKeys = getRepetitionBlockTokenKeys(
           song,
@@ -2092,10 +2093,33 @@
         return { currentBlock, referencedBlock: blocks[referencedIndex] };
       };
 
+      const getRepeatedBlockSourceChord = (
+        song,
+        tokenKey,
+        wordChords,
+        visitedTokenKeys = new Set(),
+      ) => {
+        if (visitedTokenKeys.has(tokenKey)) return "";
+        visitedTokenKeys.add(tokenKey);
+
+        if (getTokenRepeatedBlockReference(song, tokenKey)) {
+          return getInheritedRepeatedBlockChord(
+            song,
+            tokenKey,
+            wordChords,
+            visitedTokenKeys,
+          );
+        }
+
+        const canonicalTokenKey = getCanonicalRepetitionTokenKey(song, tokenKey);
+        return wordChords?.[canonicalTokenKey] || "";
+      };
+
       const getInheritedRepeatedBlockChord = (
         song,
         tokenKey,
         wordChords = song.wordChords || {},
+        visitedTokenKeys = new Set(),
       ) => {
         const repeatedBlockReference = getTokenRepeatedBlockReference(
           song,
@@ -2108,18 +2132,35 @@
           repeatedBlockReference.currentBlock,
           repeatedBlockReference.referencedBlock,
           wordChords,
+          (sourceTokenKey) =>
+            getRepeatedBlockSourceChord(
+              song,
+              sourceTokenKey,
+              wordChords,
+              new Set(visitedTokenKeys),
+            ),
         );
         return repeatedChordMap[tokenKey] || "";
       };
 
       const getEffectiveWordChord = (song, lineIndex, tokenIndex) => {
         const tokenKey = getTokenKey(lineIndex, tokenIndex);
-        if (hasOwnWordChord(song.wordChords, tokenKey)) return song.wordChords[tokenKey] || "";
-        const repeatedBlockReference = getTokenRepeatedBlockReference(song, tokenKey);
-        if (repeatedBlockReference) return getInheritedRepeatedBlockChord(song, tokenKey);
+        const repeatedBlockReference = getTokenRepeatedBlockReference(
+          song,
+          tokenKey,
+        );
+        if (repeatedBlockReference) {
+          return getInheritedRepeatedBlockChord(song, tokenKey);
+        }
+
         const canonicalTokenKey = getCanonicalRepetitionTokenKey(song, tokenKey);
         return song.wordChords?.[canonicalTokenKey] || "";
       };
+
+      const getEditableChordTokenKey = (song, tokenKey) =>
+        getTokenRepeatedBlockReference(song, tokenKey)
+          ? getCanonicalRepetitionTokenKey(song, tokenKey)
+          : tokenKey;
 
       const syncRepeatedBlockChords = (song, blocks, wordChords) => {
         const nextWordChords = { ...(wordChords || {}) };
@@ -2132,18 +2173,27 @@
             );
             if (referencedIndex === null) return;
 
-            const sourceTokenKeys = getRepetitionBlockTokenKeys(song, block);
+            const repeatedTokenKeys = getRepetitionBlockTokenKeys(song, block);
             const distributedChords = buildRepeatedBlockChordMap(
               song,
               block,
               blocks[referencedIndex],
               nextWordChords,
+              (sourceTokenKey) =>
+                getRepeatedBlockSourceChord(
+                  song,
+                  sourceTokenKey,
+                  nextWordChords,
+                ),
             );
 
-            sourceTokenKeys.forEach((sourceTokenKey) => {
-              if (hasOwnWordChord(nextWordChords, sourceTokenKey)) return;
-              if (!hasOwnWordChord(distributedChords, sourceTokenKey)) return;
-              nextWordChords[sourceTokenKey] = distributedChords[sourceTokenKey];
+            repeatedTokenKeys.forEach((repeatedTokenKey) => {
+              if (hasOwnWordChord(distributedChords, repeatedTokenKey)) {
+                nextWordChords[repeatedTokenKey] =
+                  distributedChords[repeatedTokenKey];
+              } else {
+                delete nextWordChords[repeatedTokenKey];
+              }
             });
           });
         }
@@ -3368,6 +3418,12 @@
           return;
         }
 
+        song.wordChords = syncRepeatedBlockChords(
+          song,
+          song.repetitionBlocks || [],
+          song.wordChords || {},
+        );
+
         try {
           await updateDoc(doc(db, "songs", song.id), {
             wordChords: song.wordChords || {},
@@ -3394,7 +3450,16 @@
         const song = songsById.get(appState.activeSongId);
         if (!song || !selectedTokenKey) return;
         if (!song.wordChords) song.wordChords = {};
-        song.wordChords[selectedTokenKey] = buildChordLabel();
+        const editableTokenKey = getEditableChordTokenKey(
+          song,
+          selectedTokenKey,
+        );
+        song.wordChords[editableTokenKey] = buildChordLabel();
+        song.wordChords = syncRepeatedBlockChords(
+          song,
+          song.repetitionBlocks || [],
+          song.wordChords,
+        );
         closeChordEditorPanel();
         renderSongLyricsEditor(song);
         renderChordRoadmap(song);
@@ -3404,12 +3469,16 @@
         const song = songsById.get(appState.activeSongId);
         if (!song || !selectedTokenKey) return;
         if (song.wordChords) {
-          const hasInheritedChord = Boolean(getTokenRepeatedBlockReference(song, selectedTokenKey) && getInheritedRepeatedBlockChord(song, selectedTokenKey));
-          if (hasInheritedChord) {
-            song.wordChords[selectedTokenKey] = "";
-          } else {
-            delete song.wordChords[selectedTokenKey];
-          }
+          const editableTokenKey = getEditableChordTokenKey(
+            song,
+            selectedTokenKey,
+          );
+          delete song.wordChords[editableTokenKey];
+          song.wordChords = syncRepeatedBlockChords(
+            song,
+            song.repetitionBlocks || [],
+            song.wordChords,
+          );
         }
         closeChordEditorPanel();
         renderSongLyricsEditor(song);

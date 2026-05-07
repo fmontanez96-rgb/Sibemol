@@ -710,6 +710,13 @@ body {
   background: #ffffff;
 }
 
+.lyrics-section-card h4 {
+  margin: 0 0 6px;
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .lyrics-section-card p {
   margin: 0;
   line-height: 1.5;

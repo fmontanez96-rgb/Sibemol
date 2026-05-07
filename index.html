@@ -759,6 +759,16 @@
         return sectionNames[type] || "Sin sección";
       };
 
+      const formatNumberedSectionName = (type, number) => {
+        const baseName = formatSectionName(type);
+        return number ? `${baseName} ${number}` : baseName;
+      };
+
+      const areChordSequencesEqual = (firstSequence, secondSequence) => (
+        firstSequence.length === secondSequence.length
+        && firstSequence.every((chord, index) => chord === secondSequence[index])
+      );
+
       const compareSectionRanges = (sectionA, sectionB) => {
         const startA = sectionTokenIndex(sectionA.start.line, sectionA.start.token);
         const startB = sectionTokenIndex(sectionB.start.line, sectionB.start.token);
@@ -815,11 +825,43 @@
         return chords;
       };
 
-      const buildChordRoadmapItems = (song) => getEffectiveSections(song)
+      const getNumberedSectionData = (song) => {
+        const variantChordsByType = new Map();
+
+        return getEffectiveSections(song).map((section) => {
+          const chords = getSectionChordSequence(song, section);
+          const typeVariants = variantChordsByType.get(section.type) || [];
+          let variantIndex = typeVariants.findIndex((variantChords) => areChordSequencesEqual(variantChords, chords));
+
+          if (variantIndex < 0) {
+            typeVariants.push(chords);
+            variantIndex = typeVariants.length - 1;
+            variantChordsByType.set(section.type, typeVariants);
+          }
+
+          return {
+            ...section,
+            chords,
+            variantNumber: variantIndex + 1,
+            hasDifferentChordVariant: typeVariants.length > 1
+          };
+        }).map((section, _index, allSections) => {
+          const shouldNumberSection = section.hasDifferentChordVariant || allSections.some((candidateSection) => (
+            candidateSection.type === section.type && candidateSection.hasDifferentChordVariant
+          ));
+
+          return {
+            ...section,
+            label: formatNumberedSectionName(section.type, shouldNumberSection ? section.variantNumber : null)
+          };
+        });
+      };
+
+      const buildChordRoadmapItems = (song) => getNumberedSectionData(song)
         .map((section) => ({
           type: section.type,
-          label: formatSectionName(section.type),
-          chords: getSectionChordSequence(song, section),
+          label: section.label,
+          chords: section.chords,
           showChords: true
         }));
 
@@ -866,14 +908,18 @@
 
       const renderLyricsWithSections = (song) => {
         const lines = tokenizeLyrics(song.lyrics);
+        const numberedSections = getNumberedSectionData(song);
         const groups = [];
 
         lines.forEach((tokens, lineIndex) => {
           tokens.forEach((token, tokenIndex) => {
-            const type = getTokenSectionType(song, lineIndex, tokenIndex);
+            const section = numberedSections.find((sectionRange) => isTokenInSectionRange(lineIndex, tokenIndex, sectionRange));
+            const type = section?.type || "";
+            const label = section?.label || "";
+            const sectionKey = section ? `${section.start.line}:${section.start.token}-${section.end.line}:${section.end.token}` : "";
             const lastGroup = groups[groups.length - 1];
-            if (!lastGroup || lastGroup.type !== type) {
-              groups.push({ type, lines: [[]] });
+            if (!lastGroup || lastGroup.sectionKey !== sectionKey) {
+              groups.push({ type, label, sectionKey, lines: [[]] });
             }
             const activeGroup = groups[groups.length - 1];
             const currentLine = activeGroup.lines[activeGroup.lines.length - 1];
@@ -890,11 +936,12 @@
 
         return groups.map((group) => {
           const className = group.type ? `lyrics-section-card section-${group.type}` : "lyrics-section-card";
+          const sectionTitle = group.label ? `<h4>${group.label}</h4>` : "";
           const linesHtml = group.lines
             .filter((line) => line.length)
             .map((line) => `<p>${line.join(" ")}</p>`)
             .join("");
-          return `<article class="${className}">${linesHtml}</article>`;
+          return `<article class="${className}">${sectionTitle}${linesHtml}</article>`;
         }).join("");
       };
 
@@ -914,10 +961,10 @@
       };
 
       const buildPlaybackSections = (song) => {
-        const markedSections = getEffectiveSections(song);
+        const markedSections = getNumberedSectionData(song);
         if (markedSections.length) return markedSections;
         const fullSongSection = getFullSongSection(song);
-        return fullSongSection ? [fullSongSection] : [];
+        return fullSongSection ? [{ ...fullSongSection, label: formatSectionName(fullSongSection.type) }] : [];
       };
 
       const getPlaybackSectionLines = (song, section) => {
@@ -1030,7 +1077,7 @@
         if (!song || !section) return;
 
         songPlaySection.innerHTML = "";
-        const label = formatSectionName(section.type);
+        const label = section.label || formatSectionName(section.type);
         songPlaySectionLabel.textContent = label;
         songPlayCounter.textContent = `${playbackSectionIndex + 1} / ${playbackSections.length}`;
         songPlayHelp.textContent = playbackSectionIndex === playbackSections.length - 1

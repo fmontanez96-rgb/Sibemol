@@ -2003,73 +2003,7 @@
         return targetTokenKeys[mappedOffset] || null;
       };
 
-      const sortTokenKeysByPosition = (tokenKeys) =>
-        [...tokenKeys].sort((tokenKeyA, tokenKeyB) => {
-          const tokenA = parseTokenKey(tokenKeyA);
-          const tokenB = parseTokenKey(tokenKeyB);
-          return (
-            sectionTokenIndex(tokenA.line, tokenA.token) -
-            sectionTokenIndex(tokenB.line, tokenB.token)
-          );
-        });
-
-      const getRepetitionBlockSectionSegments = (song, block) => {
-        const blockTokenKeys = new Set(
-          getRepetitionBlockTokenKeys(song, block),
-        );
-        if (!blockTokenKeys.size) return [];
-
-        const sectionSegments = getEffectiveSections(song)
-          .map((section, sectionIndex) => ({
-            type: section.type,
-            sectionIndex,
-            tokenKeys: sortTokenKeysByPosition(
-              [...blockTokenKeys].filter((tokenKey) => {
-                const { line, token } = parseTokenKey(tokenKey);
-                return isTokenInSectionRange(line, token, section);
-              }),
-            ),
-          }))
-          .filter((segment) => segment.tokenKeys.length);
-
-        if (sectionSegments.length) return sectionSegments;
-        return [
-          {
-            type: "bloque",
-            sectionIndex: -1,
-            tokenKeys: sortTokenKeysByPosition([...blockTokenKeys]),
-          },
-        ];
-      };
-
-      const getMatchingRepeatedSectionSegment = (
-        targetSegments,
-        sourceSegments,
-        sourceSegmentIndex,
-      ) => {
-        const sourceSegment = sourceSegments[sourceSegmentIndex];
-        if (!sourceSegment) return null;
-        const sameTypeOccurrence =
-          sourceSegments
-            .slice(0, sourceSegmentIndex + 1)
-            .filter((segment) => segment.type === sourceSegment.type).length -
-          1;
-        const sameTypeTargetSegments = targetSegments.filter(
-          (segment) => segment.type === sourceSegment.type,
-        );
-        return (
-          sameTypeTargetSegments[sameTypeOccurrence] ||
-          targetSegments[sourceSegmentIndex] ||
-          sameTypeTargetSegments[0] ||
-          null
-        );
-      };
-
-      const getRepetitionBlockChordSequence = (
-        tokenKeys,
-        wordChords,
-        resolveChord = (tokenKey) => wordChords?.[tokenKey],
-      ) =>
+      const getRepetitionBlockChordSequence = (tokenKeys, wordChords) =>
         tokenKeys.flatMap((tokenKey) =>
           normalizeChordList(resolveChord(tokenKey)),
         );
@@ -2100,38 +2034,23 @@
         wordChords,
         resolveChord,
       ) => {
-        const repeatedSegments = getRepetitionBlockSectionSegments(
-          song,
-          repeatedBlock,
-        );
-        const referencedSegments = getRepetitionBlockSectionSegments(
+        const referencedTokenKeys = getRepetitionBlockTokenKeys(
           song,
           referencedBlock,
         );
-        const chordMap = {};
+        const repeatedTokenKeys = getRepetitionBlockTokenKeys(
+          song,
+          repeatedBlock,
+        );
+        const chordSequence = getRepetitionBlockChordSequence(
+          referencedTokenKeys,
+          wordChords,
+        );
 
-        repeatedSegments.forEach((repeatedSegment, repeatedSegmentIndex) => {
-          const referencedSegment = getMatchingRepeatedSectionSegment(
-            referencedSegments,
-            repeatedSegments,
-            repeatedSegmentIndex,
-          );
-          if (!referencedSegment) return;
-          const chordSequence = getRepetitionBlockChordSequence(
-            referencedSegment.tokenKeys,
-            wordChords,
-            resolveChord,
-          );
-          Object.assign(
-            chordMap,
-            distributeChordSequenceToFirstTokens(
-              chordSequence,
-              repeatedSegment.tokenKeys,
-            ),
-          );
-        });
-
-        return chordMap;
+        return distributeChordSequenceToFirstTokens(
+          chordSequence,
+          repeatedTokenKeys,
+        );
       };
 
       const getCanonicalRepetitionTokenKey = (song, tokenKey) => {

@@ -2003,7 +2003,11 @@
         return targetTokenKeys[mappedOffset] || null;
       };
 
-      const getRepetitionBlockChordSequence = (tokenKeys, wordChords) =>
+      const getRepetitionBlockChordSequence = (
+        tokenKeys,
+        wordChords,
+        resolveChord = (tokenKey) => wordChords?.[tokenKey] || "",
+      ) =>
         tokenKeys.flatMap((tokenKey) =>
           normalizeChordList(resolveChord(tokenKey)),
         );
@@ -2045,6 +2049,7 @@
         const chordSequence = getRepetitionBlockChordSequence(
           referencedTokenKeys,
           wordChords,
+          resolveChord,
         );
 
         return distributeChordSequenceToFirstTokens(

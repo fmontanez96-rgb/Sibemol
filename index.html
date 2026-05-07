@@ -1406,23 +1406,12 @@
               hasDifferentChordVariant: typeVariants.length > 1,
             };
           })
-          .map((section, _index, allSections) => {
-            const shouldNumberSection =
-              section.hasDifferentChordVariant ||
-              allSections.some(
-                (candidateSection) =>
-                  candidateSection.type === section.type &&
-                  candidateSection.hasDifferentChordVariant,
-              );
-
-            return {
-              ...section,
-              label: formatNumberedSectionName(
-                section.type,
-                shouldNumberSection ? section.variantNumber : null,
-              ),
-            };
-          });
+          .map((section) => ({
+            ...section,
+            label: section.type
+              ? formatNumberedSectionName(section.type, section.variantNumber)
+              : formatSectionName(section.type),
+          }));
       };
 
       const buildChordRoadmapItems = (song) => {

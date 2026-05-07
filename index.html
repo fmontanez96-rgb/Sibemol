@@ -44,6 +44,11 @@
               <span class="remix-option-title">ALEATORIO</span>
               <span class="remix-option-copy">Deja que Sib elija una canción sorpresa para comenzar.</span>
             </button>
+            <button id="open-library-remix" class="remix-option-card" type="button">
+              <span class="remix-option-icon">📚</span>
+              <span class="remix-option-title">BIBLIOTECA</span>
+              <span class="remix-option-copy">Revisa todas las seguidillas guardadas en Firebase.</span>
+            </button>
           </div>
         </section>
 
@@ -185,14 +190,34 @@
           </div>
           <button class="close-song-detail remix-modal-close" type="button" data-close-remix-modal="organize" aria-label="Cerrar organizar lista">Volver</button>
         </div>
-        <p class="detail-help">Construye una lista para tu remix usando las canciones cargadas en el cancionero.</p>
+        <p class="detail-help">Construye una seguidilla: clickea tarjetas para agregarlas y clickea una canción en la seguidilla superior para quitarla.</p>
         <div class="remix-interface-shell">
-          <div class="remix-interface-toolbar">
-            <span>Lista de mezcla</span>
-            <button type="button" class="submit-song remix-small-action">Guardar orden</button>
+          <div class="remix-sequence-bar" aria-label="Seguidilla del remix">
+            <div class="remix-interface-toolbar">
+              <strong>Seguidilla (Remix)</strong>
+              <button id="save-remix-sequence" type="button" class="submit-song remix-small-action">Guardar</button>
+            </div>
+            <div id="organize-remix-sequence" class="remix-sequence-dropzone">Sin canciones seleccionadas</div>
           </div>
-          <ol id="organize-remix-list" class="remix-song-list"></ol>
+          <div>
+            <h4 class="remix-song-grid-title">Todas las tarjetas de canciones</h4>
+            <div id="organize-remix-list" class="remix-song-list"></div>
+          </div>
         </div>
+      </article>
+    </section>
+
+    <section id="library-remix-modal" class="remix-modal hidden" role="dialog" aria-modal="true" aria-labelledby="library-remix-title">
+      <article class="remix-modal-panel">
+        <div class="remix-modal-header">
+          <div>
+            <p class="remix-modal-kicker">Remix</p>
+            <h3 id="library-remix-title">BIBLIOTECA</h3>
+          </div>
+          <button class="close-song-detail remix-modal-close" type="button" data-close-remix-modal="library" aria-label="Cerrar biblioteca">Volver</button>
+        </div>
+        <p class="detail-help">Aquí aparecen las seguidillas guardadas en Firebase desde Organizar Lista.</p>
+        <div id="remix-library-list" class="remix-library-list"></div>
       </article>
     </section>
 
@@ -305,6 +330,7 @@
       getAnalytics(firebaseApp);
       const db = getFirestore(firebaseApp);
       const songsCollection = collection(db, "songs");
+      const remixSequencesCollection = collection(db, "remixSequences");
 
       const openSongFormButton = document.getElementById("open-song-form");
       const songFormWrapper = document.getElementById("song-form-wrapper");
@@ -313,9 +339,14 @@
       const chordsCards = document.getElementById("chords-cards");
       const openOrganizeRemixButton = document.getElementById("open-organize-remix");
       const openRandomRemixButton = document.getElementById("open-random-remix");
+      const openLibraryRemixButton = document.getElementById("open-library-remix");
       const organizeRemixModal = document.getElementById("organize-remix-modal");
       const randomRemixModal = document.getElementById("random-remix-modal");
+      const libraryRemixModal = document.getElementById("library-remix-modal");
       const organizeRemixList = document.getElementById("organize-remix-list");
+      const organizeRemixSequence = document.getElementById("organize-remix-sequence");
+      const saveRemixSequenceButton = document.getElementById("save-remix-sequence");
+      const remixLibraryList = document.getElementById("remix-library-list");
       const randomRemixResult = document.getElementById("random-remix-result");
       const shuffleRemixSongButton = document.getElementById("shuffle-remix-song");
       const navButtons = document.querySelectorAll(".piano-key");
@@ -374,7 +405,7 @@
       const bandasCantantesEmpty = document.getElementById("bandas-cantantes-empty");
       const bandasCantantesCards = document.getElementById("bandas-cantantes-cards");
 
-      const appState = { activeScreen: "nueva-cancion", songs: [] };
+      const appState = { activeScreen: "nueva-cancion", songs: [], remixSequences: [] };
       const songsById = new Map();
       let selectedTokenKey = null;
       let selectedTokenElement = null;
@@ -395,6 +426,7 @@
       let playbackSectionIndex = 0;
       let playbackSections = [];
       let bulkChordSequence = [];
+      let remixSequenceSongIds = [];
       let draggedChord = null;
 
       const naturalRoots = ["Do", "Re", "Mi", "Fa", "Sol", "La", "Si"];
@@ -1672,24 +1704,64 @@
         deleteSongModal.classList.remove("hidden");
       };
 
+      const renderOrganizeRemixSequence = () => {
+        organizeRemixSequence.innerHTML = "";
+        if (!remixSequenceSongIds.length) {
+          organizeRemixSequence.textContent = "Sin canciones seleccionadas";
+          organizeRemixSequence.classList.add("remix-sequence-empty");
+          return;
+        }
+
+        organizeRemixSequence.classList.remove("remix-sequence-empty");
+        remixSequenceSongIds.forEach((songId, index) => {
+          const song = songsById.get(songId);
+          if (!song) return;
+          const chip = document.createElement("button");
+          chip.type = "button";
+          chip.className = "remix-sequence-chip";
+          chip.textContent = `${index + 1}. ${song.title}`;
+          chip.title = "Click para quitar esta canción de la seguidilla";
+          chip.addEventListener("click", () => {
+            remixSequenceSongIds = remixSequenceSongIds.filter((id) => id !== songId);
+            renderOrganizeRemixSequence();
+            renderOrganizeRemixList();
+          });
+          organizeRemixSequence.appendChild(chip);
+        });
+      };
+
+      const toggleRemixSong = (songId) => {
+        if (remixSequenceSongIds.includes(songId)) {
+          remixSequenceSongIds = remixSequenceSongIds.filter((id) => id !== songId);
+        } else {
+          remixSequenceSongIds.push(songId);
+        }
+        renderOrganizeRemixSequence();
+        renderOrganizeRemixList();
+      };
+
       const renderOrganizeRemixList = () => {
         organizeRemixList.innerHTML = "";
 
         if (!appState.songs.length) {
-          const emptyItem = document.createElement("li");
+          const emptyItem = document.createElement("p");
           emptyItem.className = "remix-empty-item";
           emptyItem.textContent = "Aún no hay canciones para organizar. Agrega canciones desde Nueva Canción.";
           organizeRemixList.appendChild(emptyItem);
+          renderOrganizeRemixSequence();
           return;
         }
 
-        appState.songs.forEach((song, index) => {
-          const listItem = document.createElement("li");
+        appState.songs.forEach((song) => {
+          const listItem = document.createElement("button");
+          listItem.type = "button";
           listItem.className = "remix-song-list-item";
+          const isSelected = remixSequenceSongIds.includes(song.id);
+          listItem.classList.toggle("is-selected", isSelected);
 
           const position = document.createElement("span");
           position.className = "remix-song-position";
-          position.textContent = index + 1;
+          position.textContent = isSelected ? remixSequenceSongIds.indexOf(song.id) + 1 : "+";
 
           const songInfo = document.createElement("div");
           const songTitle = document.createElement("strong");
@@ -1699,8 +1771,65 @@
 
           songInfo.append(songTitle, songArtist);
           listItem.append(position, songInfo);
+          listItem.addEventListener("click", () => toggleRemixSong(song.id));
           organizeRemixList.appendChild(listItem);
         });
+        renderOrganizeRemixSequence();
+      };
+
+      const renderRemixLibrary = () => {
+        remixLibraryList.innerHTML = "";
+        if (!appState.remixSequences.length) {
+          const emptyMessage = document.createElement("p");
+          emptyMessage.className = "remix-empty-item";
+          emptyMessage.textContent = "Todavía no hay seguidillas guardadas.";
+          remixLibraryList.appendChild(emptyMessage);
+          return;
+        }
+
+        appState.remixSequences.forEach((sequence, index) => {
+          const card = document.createElement("article");
+          card.className = "remix-library-card";
+          const title = document.createElement("h4");
+          title.textContent = sequence.name || `Remix ${appState.remixSequences.length - index}`;
+          const list = document.createElement("ol");
+          list.className = "remix-library-sequence";
+          (sequence.songs || []).forEach((song) => {
+            const item = document.createElement("li");
+            const songTitle = document.createElement("strong");
+            const songArtist = document.createElement("span");
+            songTitle.textContent = song.title;
+            songArtist.textContent = song.artist;
+            item.append(songTitle, songArtist);
+            list.appendChild(item);
+          });
+          card.append(title, list);
+          remixLibraryList.appendChild(card);
+        });
+      };
+
+      const loadRemixSequences = async () => {
+        const snapshot = await getDocs(remixSequencesCollection);
+        appState.remixSequences = snapshot.docs
+          .map((docItem) => ({ id: docItem.id, ...docItem.data() }))
+          .sort((a, b) => (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0));
+        renderRemixLibrary();
+      };
+
+      const saveRemixSequence = async () => {
+        if (!remixSequenceSongIds.length) {
+          alert("Agrega canciones a la seguidilla antes de guardar.");
+          return;
+        }
+        const songs = remixSequenceSongIds.map((songId) => songsById.get(songId)).filter(Boolean);
+        await addDoc(remixSequencesCollection, {
+          name: `Remix ${new Date().toLocaleString("es-AR")}`,
+          songIds: remixSequenceSongIds,
+          songs: songs.map(({ id, title, artist }) => ({ id, title, artist })),
+          createdAt: serverTimestamp()
+        });
+        await loadRemixSequences();
+        alert("Seguidilla guardada en la biblioteca.");
       };
 
       const renderRandomRemixResult = (song = null) => {
@@ -1732,13 +1861,26 @@
           organizeRemixModal.classList.remove("hidden");
           return;
         }
+        if (modalName === "library") {
+          renderRemixLibrary();
+          loadRemixSequences().catch((error) => {
+            console.error("Error cargando biblioteca de remix:", error);
+            alert("No se pudo cargar la biblioteca de remix.");
+          });
+          libraryRemixModal.classList.remove("hidden");
+          return;
+        }
         renderRandomRemixResult();
         randomRemixModal.classList.remove("hidden");
       };
 
       const closeRemixModal = (modalName) => {
-        const modal = modalName === "organize" ? organizeRemixModal : randomRemixModal;
-        modal.classList.add("hidden");
+        const remixModals = {
+          organize: organizeRemixModal,
+          random: randomRemixModal,
+          library: libraryRemixModal
+        };
+        remixModals[modalName]?.classList.add("hidden");
       };
 
       const closeDeleteSongModal = () => {
@@ -1750,6 +1892,13 @@
       openSongFormButton.addEventListener("click", () => songFormWrapper.classList.toggle("hidden"));
       openOrganizeRemixButton.addEventListener("click", () => openRemixModal("organize"));
       openRandomRemixButton.addEventListener("click", () => openRemixModal("random"));
+      openLibraryRemixButton.addEventListener("click", () => openRemixModal("library"));
+      saveRemixSequenceButton.addEventListener("click", () => {
+        saveRemixSequence().catch((error) => {
+          console.error("Error guardando seguidilla de remix:", error);
+          alert("No se pudo guardar la seguidilla.");
+        });
+      });
       shuffleRemixSongButton.addEventListener("click", () => renderRandomRemixResult());
       document.querySelectorAll("[data-close-remix-modal]").forEach((button) => {
         button.addEventListener("click", () => closeRemixModal(button.dataset.closeRemixModal));
@@ -1828,6 +1977,7 @@
       });
       organizeRemixModal.addEventListener("click", (event) => { if (event.target === organizeRemixModal) closeRemixModal("organize"); });
       randomRemixModal.addEventListener("click", (event) => { if (event.target === randomRemixModal) closeRemixModal("random"); });
+      libraryRemixModal.addEventListener("click", (event) => { if (event.target === libraryRemixModal) closeRemixModal("library"); });
       bulkChordsModal.addEventListener("click", (event) => { if (event.target === bulkChordsModal) closeBulkChordsModal(); });
       deleteSongModal.addEventListener("click", (event) => { if (event.target === deleteSongModal) closeDeleteSongModal(); });
       deleteRepetitionBlockModal.addEventListener("click", (event) => { if (event.target === deleteRepetitionBlockModal) closeDeleteRepetitionBlockModal(); });
@@ -1975,6 +2125,9 @@
       setActiveScreen(appState.activeScreen);
       loadSongs().catch((error) => {
         console.error("Error cargando canciones:", error);
+      });
+      loadRemixSequences().catch((error) => {
+        console.error("Error cargando biblioteca de remix:", error);
       });
     </script>
   </body>

@@ -576,56 +576,46 @@
         activeRepetitionBlockId = null;
         repetitionsEditor.innerHTML = "";
         const lines = tokenizeLyrics(song.lyrics);
-        const renderedBlockIds = new Set();
 
         lines.forEach((tokens, lineIndex) => {
           const line = document.createElement("p");
           line.className = "lyrics-editor-line repetition-line";
           tokens.forEach((token, tokenIndex) => {
             const block = findRepetitionBlockForToken(song, lineIndex, tokenIndex);
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "lyrics-token repetition-token";
+            button.textContent = token;
+
             if (block) {
-              if (renderedBlockIds.has(block.id)) return;
-              renderedBlockIds.add(block.id);
-              const blockElement = document.createElement("article");
-              blockElement.className = "repetition-block";
-              blockElement.dataset.blockId = block.id;
+              button.classList.add("in-repetition-block");
+              button.dataset.blockId = block.id;
+              if (lineIndex === block.start.line && tokenIndex === block.start.token) {
+                button.classList.add("block-start");
+              }
+              if (lineIndex === block.end.line && tokenIndex === block.end.token) {
+                button.classList.add("block-end");
+              }
               const sourceId = getRepetitionSourceId(song, block.id);
               if (sourceId) {
-                blockElement.classList.add("linked");
-                blockElement.title = `Repite los acordes de ${sourceId}`;
+                button.classList.add("linked");
+                button.title = `Repite los acordes de ${sourceId}`;
               }
-              const blockTokens = getTokensInRange(song, block);
-              blockTokens.forEach((blockToken) => {
-                if (blockToken.line > blockTokens[0].line && blockToken.tokenIndex === 0) {
-                  const lineBreak = document.createElement("span");
-                  lineBreak.className = "repetition-line-break";
-                  blockElement.appendChild(lineBreak);
-                }
-                const tokenSpan = document.createElement("span");
-                tokenSpan.className = "repetition-block-token";
-                tokenSpan.textContent = blockToken.token;
-                blockElement.appendChild(tokenSpan);
-              });
-              blockElement.addEventListener("click", () => {
+              button.addEventListener("click", () => {
                 activateOrLinkRepetitionBlock(block.id).catch((error) => {
                   console.error("Error guardando repetición:", error);
                   alert("No se pudo guardar la repetición.");
                 });
               });
-              line.appendChild(blockElement);
-              return;
+            } else {
+              button.addEventListener("click", () => {
+                selectRepetitionToken(lineIndex, tokenIndex, button).catch((error) => {
+                  console.error("Error guardando bloque de repetición:", error);
+                  alert("No se pudo guardar el bloque de repetición.");
+                });
+              });
             }
 
-            const button = document.createElement("button");
-            button.type = "button";
-            button.className = "lyrics-token repetition-token";
-            button.textContent = token;
-            button.addEventListener("click", () => {
-              selectRepetitionToken(lineIndex, tokenIndex, button).catch((error) => {
-                console.error("Error guardando bloque de repetición:", error);
-                alert("No se pudo guardar el bloque de repetición.");
-              });
-            });
             line.appendChild(button);
           });
           repetitionsEditor.appendChild(line);
@@ -657,8 +647,8 @@
         if (!song) return;
         if (!activeRepetitionBlockId || activeRepetitionBlockId === blockId) {
           activeRepetitionBlockId = activeRepetitionBlockId === blockId ? null : blockId;
-          repetitionsEditor.querySelectorAll(".repetition-block").forEach((blockElement) => {
-            blockElement.classList.toggle("active", blockElement.dataset.blockId === activeRepetitionBlockId);
+          repetitionsEditor.querySelectorAll(".repetition-token.in-repetition-block").forEach((tokenElement) => {
+            tokenElement.classList.toggle("active", tokenElement.dataset.blockId === activeRepetitionBlockId);
           });
           return;
         }

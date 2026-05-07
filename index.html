@@ -622,20 +622,34 @@
         chordEditorPanel.style.top = `${top}px`;
       };
 
+      const getTokenEffectiveSection = (song, tokenKey) => {
+        const { line, token } = parseTokenKey(tokenKey);
+        return getEffectiveSections(song).find((section) => isTokenInSectionRange(line, token, section)) || null;
+      };
+
+      const getSectionIdentity = (section) => section
+        ? `${section.type}:${section.start.line}-${section.start.token}:${section.end.line}-${section.end.token}`
+        : "sin-seccion";
+
+      const canMoveChordBetweenTokens = (song, sourceTokenKey, targetTokenKey) => {
+        if (!song || !sourceTokenKey || !targetTokenKey || sourceTokenKey === targetTokenKey) return false;
+        const sourceSection = getTokenEffectiveSection(song, sourceTokenKey);
+        const targetSection = getTokenEffectiveSection(song, targetTokenKey);
+        return getSectionIdentity(sourceSection) === getSectionIdentity(targetSection);
+      };
+
       const moveChordBetweenTokens = (song, sourceTokenKey, targetTokenKey, chord) => {
-        if (!song || !sourceTokenKey || !targetTokenKey || sourceTokenKey === targetTokenKey) return;
+        if (!canMoveChordBetweenTokens(song, sourceTokenKey, targetTokenKey)) {
+          alert("El acorde solo puede moverse dentro de la misma sección donde está ubicado.");
+          return;
+        }
         if (!song.wordChords) song.wordChords = {};
 
-        const sourceHasOwnChord = hasOwnWordChord(song.wordChords, sourceTokenKey);
-        const sourceCanonicalTokenKey = getCanonicalRepetitionTokenKey(song, sourceTokenKey);
-        const movingChord = chord || song.wordChords[sourceTokenKey] || song.wordChords[sourceCanonicalTokenKey];
+        const { line, token } = parseTokenKey(sourceTokenKey);
+        const movingChord = chord || getEffectiveWordChord(song, line, token);
         if (!movingChord) return;
 
-        if (sourceHasOwnChord) {
-          delete song.wordChords[sourceTokenKey];
-        } else {
-          song.wordChords[sourceTokenKey] = "";
-        }
+        song.wordChords[sourceTokenKey] = "";
         song.wordChords[targetTokenKey] = movingChord;
         selectedTokenKey = targetTokenKey;
         selectedTokenElement = null;
@@ -692,7 +706,7 @@
               renderSongLyricsEditor(song);
             });
             wordWrapper.addEventListener("dragover", (event) => {
-              if (!draggedChord || draggedChord.sourceTokenKey === tokenKey) return;
+              if (!draggedChord || !canMoveChordBetweenTokens(song, draggedChord.sourceTokenKey, tokenKey)) return;
               event.preventDefault();
               event.dataTransfer.dropEffect = "move";
               wordWrapper.classList.add("drag-over");
@@ -1437,9 +1451,9 @@
 
       const getEffectiveWordChord = (song, lineIndex, tokenIndex) => {
         const tokenKey = getTokenKey(lineIndex, tokenIndex);
+        if (hasOwnWordChord(song.wordChords, tokenKey)) return song.wordChords[tokenKey] || "";
         const repeatedBlockReference = getTokenRepeatedBlockReference(song, tokenKey);
         if (repeatedBlockReference) return getInheritedRepeatedBlockChord(song, tokenKey);
-        if (hasOwnWordChord(song.wordChords, tokenKey)) return song.wordChords[tokenKey] || "";
         const canonicalTokenKey = getCanonicalRepetitionTokenKey(song, tokenKey);
         return song.wordChords?.[canonicalTokenKey] || "";
       };
@@ -1456,10 +1470,8 @@
             const distributedChords = buildRepeatedBlockChordMap(song, block, blocks[referencedIndex], nextWordChords);
 
             sourceTokenKeys.forEach((sourceTokenKey) => {
-              if (!hasOwnWordChord(distributedChords, sourceTokenKey)) {
-                delete nextWordChords[sourceTokenKey];
-                return;
-              }
+              if (hasOwnWordChord(nextWordChords, sourceTokenKey)) return;
+              if (!hasOwnWordChord(distributedChords, sourceTokenKey)) return;
               nextWordChords[sourceTokenKey] = distributedChords[sourceTokenKey];
             });
           });
@@ -2285,24 +2297,26 @@
         const song = songsById.get(appState.activeSongId);
         if (!song || !selectedTokenKey) return;
         if (!song.wordChords) song.wordChords = {};
-        const canonicalTokenKey = getCanonicalRepetitionTokenKey(song, selectedTokenKey);
-        song.wordChords[canonicalTokenKey] = buildChordLabel();
-        song.wordChords = syncRepeatedBlockChords(song, song.repetitionBlocks || [], song.wordChords);
+        song.wordChords[selectedTokenKey] = buildChordLabel();
         closeChordEditorPanel();
         renderSongLyricsEditor(song);
+        renderChordRoadmap(song);
       });
 
       deleteTokenChordButton.addEventListener("click", () => {
         const song = songsById.get(appState.activeSongId);
         if (!song || !selectedTokenKey) return;
-        const canonicalTokenKey = getCanonicalRepetitionTokenKey(song, selectedTokenKey);
         if (song.wordChords) {
-          delete song.wordChords[canonicalTokenKey];
-          delete song.wordChords[selectedTokenKey];
-          song.wordChords = syncRepeatedBlockChords(song, song.repetitionBlocks || [], song.wordChords);
+          const hasInheritedChord = Boolean(getTokenRepeatedBlockReference(song, selectedTokenKey) && getInheritedRepeatedBlockChord(song, selectedTokenKey));
+          if (hasInheritedChord) {
+            song.wordChords[selectedTokenKey] = "";
+          } else {
+            delete song.wordChords[selectedTokenKey];
+          }
         }
         closeChordEditorPanel();
         renderSongLyricsEditor(song);
+        renderChordRoadmap(song);
       });
 
       window.addEventListener("keydown", (event) => {

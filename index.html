@@ -377,6 +377,11 @@
       const setActiveScreen = (screenName) => {
         appState.activeScreen = screenName;
         screenPanels.forEach((panel) => panel.classList.toggle("hidden", panel.id !== `screen-${screenName}`));
+        navButtons.forEach((button) => {
+          const isActive = button.dataset.screen === screenName;
+          button.classList.toggle("is-active", isActive);
+          button.setAttribute("aria-current", isActive ? "page" : "false");
+        });
       };
 
       const tokenizeLyrics = (lyrics) => lyrics.split("\n").map((line) => line.trim().split(/\s+/).filter(Boolean));

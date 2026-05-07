@@ -1694,8 +1694,6 @@
               chordChip.textContent = chord;
               chordsLine.appendChild(chordChip);
             });
-          } else {
-            chordsLine.textContent = "—";
           }
           chordsBody.appendChild(chordsLine);
         });
@@ -2853,7 +2851,7 @@
           chordsLine.className = chords.length
             ? "remix-song-chords"
             : "remix-song-chords remix-song-chords-empty";
-          chordsLine.textContent = chords.length ? chords.join("  ") : "—";
+          chordsLine.textContent = chords.length ? chords.join("  ") : "";
           const lyricsLine = document.createElement("p");
           lyricsLine.className = "remix-song-lyrics";
           lyricsLine.textContent = words.join(" ");

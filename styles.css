@@ -1203,13 +1203,13 @@ body::before {
   top: 0;
   max-height: calc(90vh - 48px);
   overflow: auto;
-  border: 1px solid rgba(177, 134, 63, 0.3);
+  border: 1px solid rgba(128, 87, 28, 0.5);
   border-radius: 18px;
   padding: 16px;
   background:
-    radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.9), transparent 34%),
-    linear-gradient(145deg, rgba(255, 255, 255, 0.88), rgba(245, 235, 213, 0.92)),
-    repeating-linear-gradient(105deg, rgba(126, 85, 29, 0.04) 0 1px, transparent 1px 8px);
+    radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.96), transparent 34%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(238, 221, 181, 0.98)),
+    repeating-linear-gradient(105deg, rgba(126, 85, 29, 0.06) 0 1px, transparent 1px 8px);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.86),
     inset 0 -14px 24px rgba(126, 85, 29, 0.08),
@@ -1217,11 +1217,11 @@ body::before {
 }
 
 .song-chord-roadmap h4 {
-  color: #1c1208;
-  margin: 0 0 12px;
-  font-size: 1rem;
+  color: #1a0f05;
+  margin: 0 0 14px;
+  font-size: 1.02rem;
   font-weight: 950;
-  letter-spacing: 0.035em;
+  letter-spacing: 0.04em;
   text-shadow: 0 1px 0 #fff;
 }
 
@@ -1242,11 +1242,13 @@ body::before {
 
 .roadmap-section {
   border-radius: 13px;
-  padding: 11px;
-  border: 1px solid rgba(255, 255, 255, 0.68);
+  padding: 11px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.86);
+  border-left: 6px solid var(--roadmap-accent, var(--gold));
+  color: #18130d;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.68),
-    0 7px 14px rgba(45, 31, 12, 0.12);
+    inset 0 1px 0 rgba(255, 255, 255, 0.86),
+    0 8px 16px rgba(45, 31, 12, 0.18);
 }
 
 .roadmap-section-header {
@@ -1256,8 +1258,15 @@ body::before {
   gap: 6px;
 }
 
+.roadmap-section-header strong {
+  color: #111111;
+  font-weight: 950;
+}
+
 .roadmap-section-chords {
-  line-height: 1.35;
+  color: #241b13;
+  line-height: 1.4;
+  font-weight: 650;
 }
 
 .roadmap-section p {
@@ -1266,19 +1275,23 @@ body::before {
 }
 
 .roadmap-section-introduccion {
-  background: #e7fce8;
+  --roadmap-accent: #15803d;
+  background: linear-gradient(135deg, #f6fff7 0%, #b8f3c7 100%);
 }
 
 .roadmap-section-estrofa {
-  background: #e8f0ff;
+  --roadmap-accent: #2563eb;
+  background: linear-gradient(135deg, #f8fbff 0%, #aecbff 100%);
 }
 
 .roadmap-section-estribillo {
-  background: #ffe7e7;
+  --roadmap-accent: #dc2626;
+  background: linear-gradient(135deg, #fff9f9 0%, #ffc1c1 100%);
 }
 
 .roadmap-section-puente {
-  background: #fff8cc;
+  --roadmap-accent: #ca8a04;
+  background: linear-gradient(135deg, #fffef0 0%, #ffe78a 100%);
 }
 
 @media (min-width: 980px) {

@@ -18,6 +18,9 @@
   --song-cyan: #0097b2;
   --song-mint: #3dbb79;
   --song-amber: #f4b942;
+  --song-red-light: #ffb3a8;
+  --song-red: #e53935;
+  --song-red-dark: #9f1414;
 }
 
 
@@ -432,7 +435,7 @@ body::before {
     radial-gradient(circle at 15% 10%, rgba(255, 255, 255, 0.88) 0 2px, transparent 3px 36px),
     radial-gradient(circle at 90% 18%, rgba(255, 255, 255, 0.28), transparent 30%),
     repeating-linear-gradient(105deg, rgba(255, 255, 255, 0.16) 0 1px, transparent 1px 9px),
-    linear-gradient(135deg, #fff7ce 0%, #ffcf77 48%, #ff7a59 100%);
+    linear-gradient(135deg, var(--song-red-light) 0%, var(--song-red) 52%, var(--song-red-dark) 100%);
   box-shadow:
     0 14px 24px rgba(116, 65, 6, 0.15),
     0 8px 18px rgba(255, 122, 89, 0.16),
@@ -469,29 +472,6 @@ body::before {
   pointer-events: none;
 }
 
-.song-card:nth-child(4n + 2) {
-  background:
-    radial-gradient(circle at 15% 10%, rgba(255, 255, 255, 0.88) 0 2px, transparent 3px 36px),
-    radial-gradient(circle at 90% 18%, rgba(255, 255, 255, 0.28), transparent 30%),
-    repeating-linear-gradient(105deg, rgba(255, 255, 255, 0.15) 0 1px, transparent 1px 9px),
-    linear-gradient(135deg, #e4fbff 0%, #74d4e4 45%, #5d45d7 100%);
-}
-
-.song-card:nth-child(4n + 3) {
-  background:
-    radial-gradient(circle at 15% 10%, rgba(255, 255, 255, 0.88) 0 2px, transparent 3px 36px),
-    radial-gradient(circle at 90% 18%, rgba(255, 255, 255, 0.25), transparent 30%),
-    repeating-linear-gradient(105deg, rgba(255, 255, 255, 0.14) 0 1px, transparent 1px 9px),
-    linear-gradient(135deg, #fff2fb 0%, #ff9ed9 46%, #bd2d87 100%);
-}
-
-.song-card:nth-child(4n + 4) {
-  background:
-    radial-gradient(circle at 15% 10%, rgba(255, 255, 255, 0.88) 0 2px, transparent 3px 36px),
-    radial-gradient(circle at 90% 18%, rgba(255, 255, 255, 0.24), transparent 30%),
-    repeating-linear-gradient(105deg, rgba(255, 255, 255, 0.14) 0 1px, transparent 1px 9px),
-    linear-gradient(135deg, #e9fff4 0%, #79ddb0 48%, #0097b2 100%);
-}
 
 .song-card:hover {
   filter: saturate(1.1) brightness(1.02);
@@ -545,7 +525,7 @@ body::before {
 
 .song-card p {
   margin: 0;
-  color: #331a05;
+  color: #fff8f6;
   font-weight: 750;
   letter-spacing: 0.01em;
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
@@ -554,7 +534,7 @@ body::before {
 #screen-cancionero .song-card p:first-of-type::before,
 #screen-acordes .song-card p:first-of-type::before {
   content: "Voz · ";
-  color: rgba(45, 24, 7, 0.68);
+  color: rgba(255, 248, 246, 0.82);
   font-size: 0.78rem;
   font-weight: 950;
   letter-spacing: 0.08em;

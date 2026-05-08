@@ -2895,6 +2895,32 @@
         closeBulkChordsModal();
       };
 
+      const getInlineTokenChord = (token) =>
+        token.match(/^\[([^\]]+)\]/)?.[1] || "";
+
+      const getFirstSongChord = (song) => {
+        const lines = tokenizeLyrics(song.lyrics || "");
+
+        for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+          for (
+            let tokenIndex = 0;
+            tokenIndex < lines[lineIndex].length;
+            tokenIndex += 1
+          ) {
+            const token = lines[lineIndex][tokenIndex];
+            const [firstChord] = normalizeChordList(
+              getEffectiveWordChord(song, lineIndex, tokenIndex),
+            );
+            if (firstChord) return firstChord;
+
+            const inlineChord = getInlineTokenChord(token);
+            if (inlineChord) return inlineChord;
+          }
+        }
+
+        return "Sin acorde";
+      };
+
       const renderSongs = () => {
         songsById.clear();
         songbookCards.innerHTML = "";
@@ -2915,9 +2941,12 @@
 
           const chordCard = document.createElement("article");
           chordCard.className = "song-card";
-          chordCard.innerHTML = `<h4>${song.title}</h4><p>${song.artist}</p><p>Asignar acordes por palabra</p>`;
+          chordCard.innerHTML = `<h4>${song.title}</h4><p>${song.artist}</p><p>Tonalidad: ${getFirstSongChord(song)}</p>`;
           chordCard.addEventListener("click", () =>
             openSongDetail(song.id, "chords"),
+          );
+          chordCard.addEventListener("contextmenu", (event) =>
+            openSongContextMenu(event, song.id),
           );
           chordsCards.prepend(chordCard);
         });

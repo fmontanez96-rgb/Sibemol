@@ -22,7 +22,7 @@
             Nueva Canción
           </button>
           <button class="piano-key" data-screen="bandas-cantantes">
-            Bandas/Cantantes
+            Voces
           </button>
         </nav>
       </aside>
@@ -115,13 +115,13 @@
         </section>
 
         <section id="screen-bandas-cantantes" class="screen-panel hidden">
-          <h3>Bandas/Cantantes</h3>
+          <h3>Voces</h3>
           <button
             id="bandas-back-button"
             type="button"
             class="close-song-detail hidden"
           >
-            Volver a bandas/cantantes
+            Volver a voces
           </button>
           <p id="bandas-cantantes-empty" class="empty-text"></p>
           <div id="bandas-cantantes-cards" class="songbook-cards"></div>
@@ -2957,7 +2957,7 @@
         bandasBackButton.classList.add("hidden");
         bandasCantantesEmpty.textContent = performerNames.length
           ? "Haz click en una tarjeta para ver sus canciones."
-          : "Aún no hay bandas o cantantes cargados.";
+          : "Aún no hay voces cargadas.";
 
         performerNames.forEach((performerName) => {
           const performerCard = document.createElement("article");

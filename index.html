@@ -1784,7 +1784,7 @@
             : "Click, barra espaciadora o toque la pantalla para avanzar a la siguiente sección.";
 
         const sectionTitle = document.createElement("h3");
-        sectionTitle.className = "song-play-section-title";
+        sectionTitle.className = `song-play-section-title song-play-section-title-${section.type}`;
         sectionTitle.textContent = label;
 
         const sectionGrid = document.createElement("div");

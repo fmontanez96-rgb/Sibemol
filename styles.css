@@ -33,10 +33,10 @@ body {
   min-height: 100vh;
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   background:
-    radial-gradient(circle at 12% 18%, rgba(255, 205, 86, 0.2), transparent 28%),
-    radial-gradient(circle at 84% 8%, rgba(93, 69, 215, 0.12), transparent 26%),
-    radial-gradient(circle at 72% 78%, rgba(0, 151, 178, 0.13), transparent 30%),
-    linear-gradient(135deg, #fffdf6 0%, #f7f2ff 48%, #f1fbff 100%);
+    radial-gradient(circle at 12% 18%, rgba(255, 255, 255, 0.26), transparent 28%),
+    radial-gradient(circle at 84% 8%, rgba(95, 180, 255, 0.24), transparent 26%),
+    radial-gradient(circle at 72% 78%, rgba(14, 77, 146, 0.28), transparent 30%),
+    linear-gradient(135deg, #d9ecff 0%, #9ccfff 48%, #4c93df 100%);
   color: #222;
 }
 
@@ -259,9 +259,9 @@ body::before {
 .content {
   padding: 36px;
   background:
-    radial-gradient(circle at top right, rgba(255, 255, 255, 0.86) 10%, transparent 45%),
-    radial-gradient(circle at 18% 78%, rgba(244, 185, 66, 0.13), transparent 33%),
-    linear-gradient(145deg, rgba(255, 255, 255, 0.46), rgba(245, 249, 255, 0.72));
+    radial-gradient(circle at top right, rgba(255, 255, 255, 0.82) 10%, transparent 45%),
+    radial-gradient(circle at 18% 78%, rgba(10, 83, 166, 0.2), transparent 33%),
+    linear-gradient(145deg, rgba(223, 240, 255, 0.72), rgba(102, 174, 238, 0.82));
   position: relative;
 }
 
@@ -345,16 +345,13 @@ body::before {
 #screen-cancionero h3 {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   margin-top: 0;
-  background: linear-gradient(95deg, #231408 0%, #bd2d87 34%, #5d45d7 67%, #0097b2 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  font-size: 1.45rem;
+  color: #123f86;
+  font-size: 2.05rem;
   font-weight: 950;
-  letter-spacing: 0.015em;
-  text-shadow: 0 10px 18px rgba(93, 69, 215, 0.16);
+  letter-spacing: 0.01em;
+  text-shadow: 0 8px 16px rgba(18, 63, 134, 0.18);
 }
 
 #screen-cancionero h3::before {
@@ -517,11 +514,13 @@ body::before {
 
 .song-card h4 {
   margin: 0 0 8px;
-  color: #ffffff;
-  font-size: 1.08rem;
+  color: #0b2f6b;
+  font-size: 1.2rem;
   font-weight: 950;
   letter-spacing: -0.015em;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.58);
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.75),
+    0 4px 10px rgba(11, 47, 107, 0.18);
 }
 
 .song-card p {
@@ -1180,13 +1179,13 @@ body::before {
   top: 0;
   max-height: calc(90vh - 48px);
   overflow: auto;
-  border: 1px solid rgba(177, 134, 63, 0.3);
+  border: 1px solid rgba(128, 87, 28, 0.5);
   border-radius: 18px;
   padding: 16px;
   background:
-    radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.9), transparent 34%),
-    linear-gradient(145deg, rgba(255, 255, 255, 0.88), rgba(245, 235, 213, 0.92)),
-    repeating-linear-gradient(105deg, rgba(126, 85, 29, 0.04) 0 1px, transparent 1px 8px);
+    radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.96), transparent 34%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(238, 221, 181, 0.98)),
+    repeating-linear-gradient(105deg, rgba(126, 85, 29, 0.06) 0 1px, transparent 1px 8px);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.86),
     inset 0 -14px 24px rgba(126, 85, 29, 0.08),
@@ -1194,11 +1193,11 @@ body::before {
 }
 
 .song-chord-roadmap h4 {
-  color: #1c1208;
-  margin: 0 0 12px;
-  font-size: 1rem;
+  color: #1a0f05;
+  margin: 0 0 14px;
+  font-size: 1.02rem;
   font-weight: 950;
-  letter-spacing: 0.035em;
+  letter-spacing: 0.04em;
   text-shadow: 0 1px 0 #fff;
 }
 
@@ -1219,11 +1218,13 @@ body::before {
 
 .roadmap-section {
   border-radius: 13px;
-  padding: 11px;
-  border: 1px solid rgba(255, 255, 255, 0.68);
+  padding: 11px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.86);
+  border-left: 6px solid var(--roadmap-accent, var(--gold));
+  color: #18130d;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.68),
-    0 7px 14px rgba(45, 31, 12, 0.12);
+    inset 0 1px 0 rgba(255, 255, 255, 0.86),
+    0 8px 16px rgba(45, 31, 12, 0.18);
 }
 
 .roadmap-section-header {
@@ -1233,8 +1234,15 @@ body::before {
   gap: 6px;
 }
 
+.roadmap-section-header strong {
+  color: #111111;
+  font-weight: 950;
+}
+
 .roadmap-section-chords {
-  line-height: 1.35;
+  color: #241b13;
+  line-height: 1.4;
+  font-weight: 650;
 }
 
 .roadmap-section p {
@@ -1243,19 +1251,23 @@ body::before {
 }
 
 .roadmap-section-introduccion {
-  background: #e7fce8;
+  --roadmap-accent: #15803d;
+  background: linear-gradient(135deg, #f6fff7 0%, #b8f3c7 100%);
 }
 
 .roadmap-section-estrofa {
-  background: #e8f0ff;
+  --roadmap-accent: #2563eb;
+  background: linear-gradient(135deg, #f8fbff 0%, #aecbff 100%);
 }
 
 .roadmap-section-estribillo {
-  background: #ffe7e7;
+  --roadmap-accent: #dc2626;
+  background: linear-gradient(135deg, #fff9f9 0%, #ffc1c1 100%);
 }
 
 .roadmap-section-puente {
-  background: #fff8cc;
+  --roadmap-accent: #ca8a04;
+  background: linear-gradient(135deg, #fffef0 0%, #ffe78a 100%);
 }
 
 @media (min-width: 980px) {

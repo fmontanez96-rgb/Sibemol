@@ -809,6 +809,7 @@
       let activeLibraryRemixId = null;
       let remixPendingDeleteRequest = null;
       let draggedChord = null;
+      let chordDraftSong = null;
 
       const naturalRoots = ["Do", "Re", "Mi", "Fa", "Sol", "La", "Si"];
       const accidentalOptions = [
@@ -926,6 +927,29 @@
       const hasChordValue = (chordValue) =>
         normalizeChordList(chordValue).length > 0;
 
+      const cloneSongForChordDraft = (song) =>
+        JSON.parse(JSON.stringify(song || {}));
+
+      const getActiveChordSong = () =>
+        chordDraftSong && chordDraftSong.id === appState.activeSongId
+          ? chordDraftSong
+          : songsById.get(appState.activeSongId);
+
+      const getChordEditSyncContext = (song, tokenKey) => ({
+        isRepeatedBlockToken: Boolean(getTokenRepeatedBlockReference(song, tokenKey)),
+      });
+
+      const syncRepeatedBlocksAfterCanonicalChordEdit = (
+        song,
+        tokenKey,
+        wordChords = song.wordChords || {},
+      ) => {
+        const { isRepeatedBlockToken } = getChordEditSyncContext(song, tokenKey);
+        return isRepeatedBlockToken
+          ? wordChords
+          : syncRepeatedBlockChords(song, song.repetitionBlocks || [], wordChords);
+      };
+
       const renderBulkChordSequence = () => {
         bulkChordsSequence.innerHTML = "";
         if (!bulkChordSequence.length) {
@@ -982,7 +1006,7 @@
       };
 
       const applyBulkChordsToFirstWords = () => {
-        const song = songsById.get(appState.activeSongId);
+        const song = getActiveChordSong();
         if (!song || !bulkChordSequence.length) return;
 
         const lines = tokenizeLyrics(song.lyrics);
@@ -998,7 +1022,13 @@
           });
         });
 
+        song.wordChords = syncRepeatedBlockChords(
+          song,
+          song.repetitionBlocks || [],
+          song.wordChords,
+        );
         renderSongLyricsEditor(song);
+        renderChordRoadmap(song);
         closeBulkChordsModal();
       };
 
@@ -1043,8 +1073,21 @@
         ? `${section.type}:${section.start.line}-${section.start.token}:${section.end.line}-${section.end.token}`
         : "sin-seccion";
 
+      const getTokenRepetitionBlockIdentity = (song, tokenKey) => {
+        const { line, token } = parseTokenKey(tokenKey);
+        const block = getTokenRepetitionBlock(song, line, token);
+        if (!block) return null;
+        return getRepetitionBlockKey(song, block);
+      };
+
       const canMoveChordBetweenTokens = (song, sourceTokenKey, targetTokenKey) => {
         if (!song || !sourceTokenKey || !targetTokenKey || sourceTokenKey === targetTokenKey) return false;
+
+        const sourceRepeatedBlock = getTokenRepeatedBlockReference(song, sourceTokenKey);
+        if (sourceRepeatedBlock) {
+          return getTokenRepetitionBlockIdentity(song, sourceTokenKey) === getTokenRepetitionBlockIdentity(song, targetTokenKey);
+        }
+
         const sourceSection = getTokenEffectiveSection(song, sourceTokenKey);
         const targetSection = getTokenEffectiveSection(song, targetTokenKey);
         return getSectionIdentity(sourceSection) === getSectionIdentity(targetSection);
@@ -1052,7 +1095,7 @@
 
       const moveChordBetweenTokens = (song, sourceTokenKey, targetTokenKey, chord) => {
         if (!canMoveChordBetweenTokens(song, sourceTokenKey, targetTokenKey)) {
-          alert("El acorde solo puede moverse dentro de la misma sección donde está ubicado.");
+          alert("El acorde solo puede moverse dentro del mismo bloque repetido o de la misma sección donde está ubicado.");
           return;
         }
         if (!song.wordChords) song.wordChords = {};
@@ -1061,8 +1104,22 @@
         const movingChord = chord || getEffectiveWordChord(song, line, token);
         if (!movingChord) return;
 
-        song.wordChords[sourceTokenKey] = "";
+        const isMovingRepeatedBlockChord = Boolean(
+          getTokenRepeatedBlockReference(song, sourceTokenKey),
+        );
+        if (isMovingRepeatedBlockChord) {
+          song.wordChords[sourceTokenKey] = "";
+        } else {
+          delete song.wordChords[sourceTokenKey];
+        }
         song.wordChords[targetTokenKey] = movingChord;
+        if (!isMovingRepeatedBlockChord) {
+          song.wordChords = syncRepeatedBlocksAfterCanonicalChordEdit(
+            song,
+            sourceTokenKey,
+            song.wordChords,
+          );
+        }
         selectedTokenKey = targetTokenKey;
         selectedTokenElement = null;
         chordEditorPanel.classList.add("hidden");
@@ -2209,6 +2266,9 @@
         }-${block?.end?.token ?? ""}`;
       };
 
+      const getRepetitionBlockKey = (song, block) =>
+        getCanonicalRepetitionBlockKey(song, block);
+
       const getRepetitionBlockLabel = (song, block) => {
         const blockIndex = getRepetitionBlockIndex(song, block);
         return `Bloque ${blockIndex + 1}`;
@@ -2471,6 +2531,10 @@
 
       const getEffectiveWordChord = (song, lineIndex, tokenIndex) => {
         const tokenKey = getTokenKey(lineIndex, tokenIndex);
+        if (hasOwnWordChord(song.wordChords, tokenKey)) {
+          return song.wordChords?.[tokenKey] || "";
+        }
+
         const repeatedBlockReference = getTokenRepeatedBlockReference(
           song,
           tokenKey,
@@ -2483,10 +2547,7 @@
         return song.wordChords?.[canonicalTokenKey] || "";
       };
 
-      const getEditableChordTokenKey = (song, tokenKey) =>
-        getTokenRepeatedBlockReference(song, tokenKey)
-          ? getCanonicalRepetitionTokenKey(song, tokenKey)
-          : tokenKey;
+      const getEditableChordTokenKey = (song, tokenKey) => tokenKey;
 
       const syncRepeatedBlockChords = (song, blocks, wordChords) => {
         const nextWordChords = { ...(wordChords || {}) };
@@ -2973,10 +3034,13 @@
         playSongDetailButton.classList.toggle("hidden", isChordMode);
 
         if (isChordMode) {
+          chordDraftSong = cloneSongForChordDraft(song);
           selectedTokenKey = null;
           renderChordPalette();
-          renderSongLyricsEditor(song);
+          renderSongLyricsEditor(chordDraftSong);
+          renderChordRoadmap(chordDraftSong);
         } else {
+          chordDraftSong = null;
           songDetailLyrics.innerHTML = renderLyricsWithSections(song);
         }
         songDetailModal.classList.remove("hidden");
@@ -2986,6 +3050,7 @@
         songDetailModal.classList.add("hidden");
         closeChordEditorPanel();
         closeBulkChordsModal();
+        chordDraftSong = null;
       };
 
       const getInlineTokenChord = (token) =>
@@ -3732,7 +3797,7 @@
           !event.target.closest("#chord-editor-panel")
         ) {
           closeChordEditorPanel();
-          const activeSong = songsById.get(appState.activeSongId);
+          const activeSong = getActiveChordSong();
           if (activeSong) renderSongLyricsEditor(activeSong);
         }
       });
@@ -3805,22 +3870,22 @@
       };
 
       const saveSongWordChords = async () => {
-        const song = songsById.get(appState.activeSongId);
+        const song = getActiveChordSong();
         if (!song) {
           alert("No hay una canción activa para guardar.");
           return;
         }
 
-        song.wordChords = syncRepeatedBlockChords(
-          song,
-          song.repetitionBlocks || [],
-          song.wordChords || {},
-        );
-
         try {
           await updateDoc(doc(db, "songs", song.id), {
             wordChords: song.wordChords || {},
           });
+          await loadSongs();
+          chordDraftSong = cloneSongForChordDraft(songsById.get(song.id));
+          if (chordDraftSong) {
+            renderSongLyricsEditor(chordDraftSong);
+            renderChordRoadmap(chordDraftSong);
+          }
           alert("Acordes guardados correctamente.");
         } catch (error) {
           console.error("Error guardando acordes de la canción:", error);
@@ -3840,7 +3905,7 @@
       });
 
       saveTokenChordButton.addEventListener("click", () => {
-        const song = songsById.get(appState.activeSongId);
+        const song = getActiveChordSong();
         if (!song || !selectedTokenKey) return;
         if (!song.wordChords) song.wordChords = {};
         const editableTokenKey = getEditableChordTokenKey(
@@ -3848,9 +3913,9 @@
           selectedTokenKey,
         );
         song.wordChords[editableTokenKey] = buildChordLabel();
-        song.wordChords = syncRepeatedBlockChords(
+        song.wordChords = syncRepeatedBlocksAfterCanonicalChordEdit(
           song,
-          song.repetitionBlocks || [],
+          editableTokenKey,
           song.wordChords,
         );
         closeChordEditorPanel();
@@ -3859,17 +3924,21 @@
       });
 
       deleteTokenChordButton.addEventListener("click", () => {
-        const song = songsById.get(appState.activeSongId);
+        const song = getActiveChordSong();
         if (!song || !selectedTokenKey) return;
         if (song.wordChords) {
           const editableTokenKey = getEditableChordTokenKey(
             song,
             selectedTokenKey,
           );
-          delete song.wordChords[editableTokenKey];
-          song.wordChords = syncRepeatedBlockChords(
+          if (getTokenRepeatedBlockReference(song, editableTokenKey)) {
+            song.wordChords[editableTokenKey] = "";
+          } else {
+            delete song.wordChords[editableTokenKey];
+          }
+          song.wordChords = syncRepeatedBlocksAfterCanonicalChordEdit(
             song,
-            song.repetitionBlocks || [],
+            editableTokenKey,
             song.wordChords,
           );
         }

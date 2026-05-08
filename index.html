@@ -1070,94 +1070,184 @@
         renderChordRoadmap(song);
       };
 
+      const createChordTokenElement = (song, token, lineIndex, tokenIndex) => {
+        const tokenKey = `${lineIndex}-${tokenIndex}`;
+        const wordWrapper = document.createElement("button");
+        wordWrapper.type = "button";
+        wordWrapper.className = "lyrics-token";
+        wordWrapper.dataset.tokenKey = tokenKey;
+        if (tokenKey === selectedTokenKey) wordWrapper.classList.add("active");
+        if (tokenKey === selectedTokenKey) selectedTokenElement = wordWrapper;
+
+        const assignedChord = getEffectiveWordChord(
+          song,
+          lineIndex,
+          tokenIndex,
+        );
+        const chordChip = document.createElement("span");
+        chordChip.className = "token-chord";
+        chordChip.textContent = formatChordValue(assignedChord);
+        if (hasChordValue(assignedChord)) {
+          chordChip.classList.add("token-chord-draggable");
+          chordChip.draggable = true;
+          chordChip.title =
+            "Haz click para editar este acorde o arrástralo hacia otra palabra";
+          chordChip.addEventListener("dragstart", (event) => {
+            draggedChord = {
+              chord: assignedChord,
+              sourceTokenKey: tokenKey,
+            };
+            wordWrapper.classList.add("drag-source");
+            event.dataTransfer.effectAllowed = "move";
+            event.dataTransfer.setData(
+              "text/plain",
+              formatChordValue(assignedChord),
+            );
+          });
+          chordChip.addEventListener("dragend", () => {
+            draggedChord = null;
+            wordWrapper.classList.remove("drag-source");
+            document
+              .querySelectorAll(".lyrics-token.drag-over")
+              .forEach((tokenElement) =>
+                tokenElement.classList.remove("drag-over"),
+              );
+          });
+        }
+
+        const wordText = document.createElement("span");
+        wordText.className = "token-word";
+        wordText.textContent = token;
+        wordWrapper.append(chordChip, wordText);
+        wordWrapper.addEventListener("click", () => {
+          selectedTokenKey = tokenKey;
+          setChordSelectorsFromLabel(assignedChord);
+          setDeleteTokenChordVisibility(hasChordValue(assignedChord));
+          chordEditorPanel.classList.remove("hidden");
+          renderSongLyricsEditor(song);
+        });
+        wordWrapper.addEventListener("dragover", (event) => {
+          if (
+            !draggedChord ||
+            !canMoveChordBetweenTokens(
+              song,
+              draggedChord.sourceTokenKey,
+              tokenKey,
+            )
+          )
+            return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "move";
+          wordWrapper.classList.add("drag-over");
+        });
+        wordWrapper.addEventListener("dragleave", () => {
+          wordWrapper.classList.remove("drag-over");
+        });
+        wordWrapper.addEventListener("drop", (event) => {
+          if (!draggedChord) return;
+          event.preventDefault();
+          wordWrapper.classList.remove("drag-over");
+          moveChordBetweenTokens(
+            song,
+            draggedChord.sourceTokenKey,
+            tokenKey,
+            draggedChord.chord,
+          );
+          draggedChord = null;
+        });
+        return wordWrapper;
+      };
+
+      const createChordRepetitionBlockCard = (song, block, lines) => {
+        const colors = getRepetitionBlockColors(song, block);
+        const card = document.createElement("div");
+        card.className = "chord-repetition-block-card";
+        card.style.backgroundColor = colors.background;
+        card.style.borderColor = colors.border;
+        card.style.setProperty("--repetition-accent", colors.border);
+
+        const blockLines = document.createElement("div");
+        blockLines.className = "chord-repetition-block-lines";
+
+        for (
+          let lineIndex = block.start.line;
+          lineIndex <= block.end.line;
+          lineIndex += 1
+        ) {
+          const firstToken =
+            lineIndex === block.start.line ? block.start.token : 0;
+          const lastToken =
+            lineIndex === block.end.line
+              ? block.end.token
+              : (lines[lineIndex]?.length || 0) - 1;
+          const blockLine = document.createElement("div");
+          blockLine.className = "chord-repetition-block-line";
+
+          for (
+            let tokenIndex = firstToken;
+            tokenIndex <= lastToken;
+            tokenIndex += 1
+          ) {
+            const token = lines[lineIndex]?.[tokenIndex];
+            if (!token) continue;
+            blockLine.appendChild(
+              createChordTokenElement(song, token, lineIndex, tokenIndex),
+            );
+          }
+
+          blockLines.appendChild(blockLine);
+        }
+
+        card.appendChild(blockLines);
+        return card;
+      };
+
       const renderSongLyricsEditor = (song) => {
         songDetailLyricsEditor.innerHTML = "";
         selectedTokenElement = null;
         const lines = tokenizeLyrics(song.lyrics);
-        lines.forEach((tokens, lineIndex) => {
-          const line = document.createElement("p");
-          line.className = "lyrics-editor-line";
-          tokens.forEach((token, tokenIndex) => {
-            const tokenKey = `${lineIndex}-${tokenIndex}`;
-            const wordWrapper = document.createElement("button");
-            wordWrapper.type = "button";
-            wordWrapper.className = "lyrics-token";
-            wordWrapper.dataset.tokenKey = tokenKey;
-            if (tokenKey === selectedTokenKey)
-              wordWrapper.classList.add("active");
-            if (tokenKey === selectedTokenKey)
-              selectedTokenElement = wordWrapper;
+        const blocks = getRepetitionBlocks(song);
 
-            const assignedChord = getEffectiveWordChord(
-              song,
-              lineIndex,
-              tokenIndex,
-            );
-            const chordChip = document.createElement("span");
-            chordChip.className = "token-chord";
-            chordChip.textContent = formatChordValue(assignedChord);
-            if (hasChordValue(assignedChord)) {
-              chordChip.classList.add("token-chord-draggable");
-              chordChip.draggable = true;
-              chordChip.title =
-                "Haz click para editar este acorde o arrástralo hacia otra palabra";
-              chordChip.addEventListener("dragstart", (event) => {
-                draggedChord = {
-                  chord: assignedChord,
-                  sourceTokenKey: tokenKey,
-                };
-                wordWrapper.classList.add("drag-source");
-                event.dataTransfer.effectAllowed = "move";
-                event.dataTransfer.setData(
-                  "text/plain",
-                  formatChordValue(assignedChord),
-                );
-              });
-              chordChip.addEventListener("dragend", () => {
-                draggedChord = null;
-                wordWrapper.classList.remove("drag-source");
-                document
-                  .querySelectorAll(".lyrics-token.drag-over")
-                  .forEach((tokenElement) =>
-                    tokenElement.classList.remove("drag-over"),
-                  );
-              });
+        lines.forEach((tokens, lineIndex) => {
+          const line = document.createElement("div");
+          line.className = "lyrics-editor-line";
+
+          tokens.forEach((token, tokenIndex) => {
+            const block = getTokenRepetitionBlock(song, lineIndex, tokenIndex);
+            if (!block) {
+              line.appendChild(
+                createChordTokenElement(song, token, lineIndex, tokenIndex),
+              );
+              return;
             }
 
-            const wordText = document.createElement("span");
-            wordText.textContent = token;
-            wordWrapper.append(chordChip, wordText);
-            wordWrapper.addEventListener("click", () => {
-              selectedTokenKey = tokenKey;
-              setChordSelectorsFromLabel(assignedChord);
-              setDeleteTokenChordVisibility(hasChordValue(assignedChord));
-              chordEditorPanel.classList.remove("hidden");
-              renderSongLyricsEditor(song);
-            });
-            wordWrapper.addEventListener("dragover", (event) => {
-              if (!draggedChord || !canMoveChordBetweenTokens(song, draggedChord.sourceTokenKey, tokenKey)) return;
-              event.preventDefault();
-              event.dataTransfer.dropEffect = "move";
-              wordWrapper.classList.add("drag-over");
-            });
-            wordWrapper.addEventListener("dragleave", () => {
-              wordWrapper.classList.remove("drag-over");
-            });
-            wordWrapper.addEventListener("drop", (event) => {
-              if (!draggedChord) return;
-              event.preventDefault();
-              wordWrapper.classList.remove("drag-over");
-              moveChordBetweenTokens(
-                song,
-                draggedChord.sourceTokenKey,
-                tokenKey,
-                draggedChord.chord,
+            if (
+              block.start.line === lineIndex &&
+              block.start.token === tokenIndex
+            ) {
+              line.appendChild(
+                createChordRepetitionBlockCard(song, block, lines),
               );
-              draggedChord = null;
-            });
-            line.appendChild(wordWrapper);
+            }
           });
-          songDetailLyricsEditor.appendChild(line);
+
+          const hasVisibleContent = line.children.length > 0;
+          const isCoveredByPreviousBlock = tokens.some((_, tokenIndex) => {
+            const block = getTokenRepetitionBlock(song, lineIndex, tokenIndex);
+            return (
+              block &&
+              sectionTokenIndex(block.start.line, block.start.token) <
+                sectionTokenIndex(lineIndex, tokenIndex)
+            );
+          });
+
+          if (
+            hasVisibleContent ||
+            !isCoveredByPreviousBlock ||
+            !blocks.length
+          ) {
+            songDetailLyricsEditor.appendChild(line);
+          }
         });
         if (selectedTokenElement) positionChordEditorNearToken();
       };
@@ -2461,9 +2551,12 @@
       const getRepetitionBlockColors = (song, block) => {
         const colorIndex = resolveRepetitionColorIndex(song, block);
         const colors = getCanonicalRepetitionBackgroundColor(colorIndex);
+        const rgbValue = `${colors.rgb.red}, ${colors.rgb.green}, ${colors.rgb.blue}`;
         return {
-          background: colors.background,
-          text: getContrastingTextColor(colors.rgb),
+          background: `rgba(${rgbValue}, 0.2)`,
+          border: `rgba(${rgbValue}, 0.72)`,
+          solid: colors.background,
+          text: "#f8fafc",
         };
       };
 
@@ -2554,7 +2647,7 @@
         card.className = "repetition-block-card";
         card.style.backgroundColor = colors.background;
         card.style.color = colors.text;
-        card.style.borderColor = colors.text;
+        card.style.borderColor = colors.border;
 
         const blockWords = document.createElement("div");
         blockWords.className = "repetition-block-words";
